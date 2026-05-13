@@ -10,9 +10,9 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.umd.js"></script>
 <!-- Firebase SDK -->
-<script src="https://cdn.jsdelivr.net/npm/firebase@10.12.0/compat/app/index.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/firebase@10.12.0/compat/auth/index.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/firebase@10.12.0/compat/database/index.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
 <style>
 :root {
   --bg: #f4f2ee;
@@ -2264,14 +2264,6 @@ function initFacilityColors() {
 }
 
 // ===== Firebase 初期化 =====
-if (typeof firebase === 'undefined') {
-  document.body.innerHTML = '<div style="padding:40px;font-family:sans-serif;color:#c00;">' +
-    '<h2>⚠️ Firebase SDKの読み込みに失敗しました</h2>' +
-    '<p>インターネット接続を確認して、ページを再読み込みしてください。</p>' +
-    '<button onclick="location.reload()" style="padding:10px 20px;font-size:14px;cursor:pointer;">再読み込み</button>' +
-    '</div>';
-  throw new Error('Firebase SDK not loaded');
-}
 const firebaseConfig = {
   apiKey: "AIzaSyCOQbcq8KWcQQlrNZitOBoGDsqZLerq6Ss",
   authDomain: "kaigi-mae-hokoku.firebaseapp.com",
