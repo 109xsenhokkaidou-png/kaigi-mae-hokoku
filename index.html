@@ -9,7 +9,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.umd.js"></script>
-<!-- Firebase SDK (jsDelivr CDN) -->
+<!-- Firebase SDK -->
 <script src="https://cdn.jsdelivr.net/npm/firebase@10.12.0/compat/app/index.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/firebase@10.12.0/compat/auth/index.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/firebase@10.12.0/compat/database/index.min.js"></script>
@@ -230,6 +230,14 @@ header h1 { font-size: 14px; font-weight: 600; letter-spacing: 0.02em; }
   width: 80px;
   flex-shrink: 0;
 }
+/* 上下ボタン（スピナー）を全数値入力から廃止 */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] { -moz-appearance: textfield; }
+
 .staffing-row input[type="number"] {
   width: 80px;
   height: 28px;
@@ -266,14 +274,6 @@ header h1 { font-size: 14px; font-weight: 600; letter-spacing: 0.02em; }
   border-bottom: 1px solid var(--border);
   letter-spacing: 0.05em;
 }
-
-/* 上下ボタン（スピナー）を全数値入力から廃止 */
-input[type="number"]::-webkit-inner-spin-button,
-input[type="number"]::-webkit-outer-spin-button {
-  -webkit-appearance: none;
-  margin: 0;
-}
-input[type="number"] { -moz-appearance: textfield; }
 
 /* テーブル入力 */
 .input-table {
@@ -1512,7 +1512,6 @@ tr.action-保留 td { background:#fff5f5 !important; }
 }
 #sync-indicator.active { display: block; }
 
-
 </style>
 </head>
 <body>
@@ -1531,7 +1530,6 @@ tr.action-保留 td { background:#fff5f5 !important; }
 </div>
 <!-- ===== 同期インジケーター ===== -->
 <div id="sync-indicator">🔄 保存中...</div>
-
 
 <header>
   <h1>北海道ブロック　責任者会議　会議前報告</h1>
@@ -1618,7 +1616,7 @@ tr.action-保留 td { background:#fff5f5 !important; }
       <div class="page-title" id="facility-view-title"></div>
       <div class="page-subtitle">各セクションを入力してください</div>
 
-      <!-- 基本情報・人員数 -->
+      <!-- 基本情報 -->
       <div class="card">
         <div class="card-header">
           <div class="card-title"><span class="icon">🏥</span>基本情報・人員数</div>
@@ -2288,22 +2286,18 @@ const auth = firebase.auth();
 const db   = firebase.database();
 
 // ===== ストレージ（ローカルキャッシュ + Firebase同期） =====
-// ローカルキャッシュ（画面描画はこちらから即時読む）
 const _cache = {};
-let _dbRoot = null; // ログイン後に設定：db.ref('hkk') （全施設共有）
-let _fbListener = null;      // リアルタイムリスナー参照（ログアウト時にデタッチ用）
-let _appInitialized = false; // _initAppの多重呼び出し防止
-
-// syncTimer: 書き込みを300msデバウンスしてFirebaseへ
+let _dbRoot = null;
+let _fbListener = null;
+let _appInitialized = false;
 let _syncTimer = null;
-const _pendingWrites = {}; // key -> value
+const _pendingWrites = {};
 
 function _showSync(on) {
   const el = document.getElementById('sync-indicator');
   if (el) el.classList.toggle('active', on);
 }
 
-// Firebaseへ書き込み（デバウンス）
 function _flushToFirebase() {
   if (!_dbRoot || Object.keys(_pendingWrites).length === 0) return;
   _showSync(true);
@@ -2317,11 +2311,9 @@ function _flushToFirebase() {
     .finally(() => _showSync(false));
 }
 
-// ===== S オブジェクト（同期的に読み書き、裏でFirebase同期） =====
 const S = {
   get: (k, d) => {
     if (k in _cache) return _cache[k];
-    // キャッシュにない場合はlocalStorageから（初回のみ）
     try {
       const v = localStorage.getItem('hkk_'+k);
       if (v) { _cache[k] = JSON.parse(v); return _cache[k]; }
@@ -2330,9 +2322,7 @@ const S = {
   },
   set: (k, v) => {
     _cache[k] = v;
-    // localStorageにも書いてオフライン時のバックアップ
     try { localStorage.setItem('hkk_'+k, JSON.stringify(v)); } catch(e) {}
-    // Firebase非同期書き込み
     if (_dbRoot) {
       _pendingWrites[k] = v;
       clearTimeout(_syncTimer);
@@ -2357,10 +2347,8 @@ function signOut() {
   auth.signOut();
 }
 
-// 認証状態の監視
 auth.onAuthStateChanged(user => {
   if (user) {
-    // ログイン済み
     document.getElementById('login-screen').classList.remove('active');
     const ui = document.getElementById('user-info');
     if (ui) {
@@ -2370,15 +2358,12 @@ auth.onAuthStateChanged(user => {
       if (av && user.photoURL) av.src = user.photoURL;
       if (nm) nm.textContent = user.displayName || user.email;
     }
-    // Firebaseのルートパスを設定してデータをロード
     _dbRoot = db.ref('hkk');
     _loadFromFirebase();
   } else {
-    // ログアウト
     document.getElementById('login-screen').classList.add('active');
     const ui = document.getElementById('user-info');
     if (ui) ui.style.display = 'none';
-    // リアルタイムリスナーをデタッチ
     if (_fbListener && _dbRoot) {
       _dbRoot.off('value', _fbListener);
       _fbListener = null;
@@ -2388,28 +2373,22 @@ auth.onAuthStateChanged(user => {
   }
 });
 
-// Firebaseからデータを一括ロードしてキャッシュに展開（リアルタイムリスナー）
 function _loadFromFirebase() {
-  // 既存リスナーがあれば先にデタッチ
   if (_fbListener) {
     _dbRoot.off('value', _fbListener);
     _fbListener = null;
   }
   _appInitialized = false;
-
   _fbListener = _dbRoot.on('value', snap => {
     const data = snap.val() || {};
-    // キャッシュとlocalStorageに展開
     for (const [k, v] of Object.entries(data)) {
       _cache[k] = v;
       try { localStorage.setItem('hkk_'+k, JSON.stringify(v)); } catch(e) {}
     }
     if (!_appInitialized) {
-      // 初回：アプリ初期化
       _appInitialized = true;
       _initApp();
     } else {
-      // 2回目以降：他端末からの変更を受信 → 現在表示中のビューを再描画
       _onRemoteUpdate();
     }
   }, err => {
@@ -2423,20 +2402,15 @@ function _loadFromFirebase() {
 
 // 他端末の変更受信時：現在開いているビューのみ再描画
 function _onRemoteUpdate() {
-  // 施設入力ビューが開いていれば、フォームを再ロード（ユーザーが入力中でない場合のみ）
   if (currentFacility) {
     const facilityView = document.getElementById('view-facility');
     if (facilityView && facilityView.classList.contains('active')) {
-      // フォーカスが当たっている要素があれば再描画しない（入力中の可能性）
       const focused = document.activeElement;
       const isInputting = focused && facilityView.contains(focused) &&
         (focused.tagName === 'INPUT' || focused.tagName === 'TEXTAREA' || focused.tagName === 'SELECT');
-      if (!isInputting) {
-        loadFacilityData(currentFacility);
-      }
+      if (!isInputting) loadFacilityData(currentFacility);
     }
   }
-  // サイドバーのドット（入力状況）を更新
   if (typeof buildNav === 'function') buildNav();
 }
 
@@ -2733,23 +2707,22 @@ function openFacility(f) {
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   document.getElementById('view-facility').classList.add('active');
   document.getElementById('facility-view-title').textContent = `🏥 ${f}`;
-  const fnEl = document.getElementById('f-facility-name');
-  if (fnEl) fnEl.textContent = f;
+  document.getElementById('f-facility-name').textContent = f;
   loadFacilityData(f);
 }
 
 // ===== 施設データをフォームへ =====
 function loadFacilityData(f) {
   const b = getFacilityData(f, 'basic', {});
-  document.getElementById('f-reporter').value  = b.reporter || '';
-  document.getElementById('f-jokin-m').value   = b.jokin_m  !== undefined ? b.jokin_m  : 0;
-  document.getElementById('f-jokin-f').value   = b.jokin_f  !== undefined ? b.jokin_f  : 0;
-  document.getElementById('f-hjokin-m').value  = b.hjokin_m !== undefined ? b.hjokin_m : 0;
-  document.getElementById('f-hjokin-f').value  = b.hjokin_f !== undefined ? b.hjokin_f : 0;
-  document.getElementById('f-kyuka').value     = b.kyuka    !== undefined ? b.kyuka    : 0;
-  document.getElementById('f-ouen-num').value  = b.ouen_num !== undefined ? b.ouen_num : 0;
-  document.getElementById('f-jimu').value      = b.jimu     !== undefined ? b.jimu     : 0;
-  document.getElementById('f-teiin').value     = b.teiin    !== undefined ? b.teiin    : 0;
+  document.getElementById('f-reporter').value = b.reporter || '';
+  document.getElementById('f-jokin-m').value  = b.jokin_m  || 0;
+  document.getElementById('f-jokin-f').value  = b.jokin_f  || 0;
+  document.getElementById('f-hjokin-m').value = b.hjokin_m || 0;
+  document.getElementById('f-hjokin-f').value = b.hjokin_f || 0;
+  document.getElementById('f-kyuka').value    = b.kyuka    || 0;
+  document.getElementById('f-ouen-num').value = b.ouen_num || 0;
+  document.getElementById('f-jimu').value     = b.jimu     || 0;
+  document.getElementById('f-teiin').value    = b.teiin    || 0;
   calcTotals();
 
   const loadTable = (section, tableId, defaultRows, adder) => {
@@ -2773,6 +2746,18 @@ function loadFacilityData(f) {
     document.getElementById('f-sonota-carry').checked   = false;
     document.getElementById('f-sonota-minutes').checked = false;
   }
+}
+
+// ===== 合計計算 =====
+function calcTotals() {
+  const n = id => parseFloat(document.getElementById(id).value)||0;
+  const jm = n('f-jokin-m'), jf = n('f-jokin-f');
+  const hm = n('f-hjokin-m'), hf = n('f-hjokin-f');
+  const t1 = Math.round((jm+jf)*10)/10;
+  const t2 = Math.round((hm+hf)*10)/10;
+  document.getElementById('f-jokin-total').value  = t1;
+  document.getElementById('f-hjokin-total').value = t2;
+  document.getElementById('f-total').value = Math.round((jm+jf+hm+hf+n('f-kyuka')+n('f-ouen-num')+n('f-jimu'))*10)/10;
 }
 
 // ===== 行追加 =====
@@ -2827,35 +2812,20 @@ function addRow(tableId, data={}) {
   body.appendChild(tr);
 }
 
-// ===== 人員数合計計算 =====
-function calcTotals() {
-  const n = id => parseFloat(document.getElementById(id)?.value) || 0;
-  const jm = n('f-jokin-m'), jf = n('f-jokin-f');
-  const hm = n('f-hjokin-m'), hf = n('f-hjokin-f');
-  const t1 = Math.round((jm + jf) * 10) / 10;
-  const t2 = Math.round((hm + hf) * 10) / 10;
-  const jokinTotalEl  = document.getElementById('f-jokin-total');
-  const hjokinTotalEl = document.getElementById('f-hjokin-total');
-  const totalEl       = document.getElementById('f-total');
-  if (jokinTotalEl)  jokinTotalEl.value  = t1;
-  if (hjokinTotalEl) hjokinTotalEl.value = t2;
-  if (totalEl)       totalEl.value = Math.round((jm + jf + hm + hf + n('f-kyuka') + n('f-ouen-num') + n('f-jimu')) * 10) / 10;
-}
-
 // ===== 全セクション一括保存 =====
 function saveAll() {
   if (!currentFacility) return;
 
   setFacilityData(currentFacility, 'basic', {
     reporter: document.getElementById('f-reporter').value,
-    jokin_m:  parseFloat(document.getElementById('f-jokin-m').value)  || 0,
-    jokin_f:  parseFloat(document.getElementById('f-jokin-f').value)  || 0,
-    hjokin_m: parseFloat(document.getElementById('f-hjokin-m').value) || 0,
-    hjokin_f: parseFloat(document.getElementById('f-hjokin-f').value) || 0,
-    kyuka:    parseFloat(document.getElementById('f-kyuka').value)    || 0,
-    ouen_num: parseFloat(document.getElementById('f-ouen-num').value) || 0,
-    jimu:     parseFloat(document.getElementById('f-jimu').value)     || 0,
-    teiin:    parseFloat(document.getElementById('f-teiin').value)    || 0,
+    jokin_m:  parseFloat(document.getElementById('f-jokin-m').value)||0,
+    jokin_f:  parseFloat(document.getElementById('f-jokin-f').value)||0,
+    hjokin_m: parseFloat(document.getElementById('f-hjokin-m').value)||0,
+    hjokin_f: parseFloat(document.getElementById('f-hjokin-f').value)||0,
+    kyuka:    parseFloat(document.getElementById('f-kyuka').value)||0,
+    ouen_num: parseFloat(document.getElementById('f-ouen-num').value)||0,
+    jimu:     parseFloat(document.getElementById('f-jimu').value)||0,
+    teiin:    parseFloat(document.getElementById('f-teiin').value)||0,
   });
 
   // 引き継ぎフラグを含めてrow収集するヘルパー
@@ -2958,6 +2928,46 @@ function switchSummaryFacilityTab(f) {
 
 function buildFacilitySummaryHTML(f, color) {
   const esc = s => (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+  // ===== 基本情報・人員数 =====
+  const b = getFacilityData(f, 'basic', {});
+  const jm=b.jokin_m||0, jf=b.jokin_f||0, hm=b.hjokin_m||0, hf=b.hjokin_f||0;
+  const ky=b.kyuka||0, ou=b.ouen_num||0, ji=b.jimu||0, te=b.teiin||0;
+  const tot = Math.round((jm+jf+hm+hf+ky+ou+ji)*10)/10;
+
+  const basicSection = `
+  <div class="sum-section">
+    <div class="sum-section-header"><span>🏥</span>基本情報・人員数</div>
+    <div class="sum-section-body">
+      <div class="sum-basic-grid">
+        <div class="sum-basic-label">施設名</div>
+        <div class="sum-basic-val" style="color:${color};">${esc(f)}</div>
+        <div class="sum-basic-label">報告者名</div>
+        <div class="sum-basic-val">${esc(b.reporter)||'—'}</div>
+      </div>
+      <div class="sum-staffing-outer">
+        <div class="sum-staffing-block">
+          <div class="sum-staffing-block-title">常勤</div>
+          <div class="sum-staffing-row"><span class="sum-staffing-label">男</span><span class="sum-staffing-val">${jm}</span></div>
+          <div class="sum-staffing-row"><span class="sum-staffing-label">女</span><span class="sum-staffing-val">${jf}</span></div>
+          <div class="sum-staffing-row"><span class="sum-staffing-label">合計</span><span class="sum-staffing-val">${Math.round((jm+jf)*10)/10}</span></div>
+          <div class="sum-staffing-block-title" style="border-top:1px solid var(--border)">非常勤</div>
+          <div class="sum-staffing-row"><span class="sum-staffing-label">男</span><span class="sum-staffing-val">${hm}</span></div>
+          <div class="sum-staffing-row"><span class="sum-staffing-label">女</span><span class="sum-staffing-val">${hf}</span></div>
+          <div class="sum-staffing-row"><span class="sum-staffing-label">合計</span><span class="sum-staffing-val">${Math.round((hm+hf)*10)/10}</span></div>
+        </div>
+        <div class="sum-staffing-block">
+          <div class="sum-staffing-block-title">その他</div>
+          <div class="sum-staffing-row"><span class="sum-staffing-label">長期休暇など</span><span class="sum-staffing-val">${ky}</span></div>
+          <div class="sum-staffing-row"><span class="sum-staffing-label">応援人員</span><span class="sum-staffing-val">${ou}</span></div>
+          <div class="sum-staffing-row"><span class="sum-staffing-label">事務職・他</span><span class="sum-staffing-val">${ji}</span></div>
+          <div class="sum-staffing-row"><span class="sum-staffing-label">定員</span><span class="sum-staffing-val">${te}</span></div>
+          <div class="sum-staffing-block-title" style="border-top:1px solid var(--border)">集計</div>
+          <div class="sum-staffing-row"><span class="sum-staffing-label" style="color:var(--accent);font-weight:700;">総合計</span><span class="sum-staffing-val total">${tot}</span></div>
+        </div>
+      </div>
+    </div>
+  </div>`;
 
   // ===== 人事 =====
   const jinjiRows = getFacilityData(f, 'jinji', []).filter(r => r.name);
@@ -3075,7 +3085,7 @@ function buildFacilitySummaryHTML(f, color) {
   // ===== 四半期カード =====
   const qSection = buildQuarterlyCards(f, color);
 
-  return jinjiSection + ouenSection + snSection + sfSection + sonotaSection + qSection;
+  return basicSection + jinjiSection + ouenSection + snSection + sfSection + sonotaSection + qSection;
 }
 
 // ===== 四半期カード生成（グラフページと同書式）=====
@@ -3350,11 +3360,10 @@ function removeFacility(idx) {
   facs.splice(idx,1);
   S.set('facilities', facs);
   ['basic','jinji','ouen','souchi-new','souchi-fail','sonota'].forEach(s => {
-    // キャッシュとlocalStorageから削除
-    delete _cache[`fac_${name}_${s}`];
-    try { localStorage.removeItem(`hkk_fac_${name}_${s}`); } catch(e) {}
-    // Firebaseから削除
-    if (_dbRoot) _dbRoot.child(`fac_${name}_${s}`).remove();
+    const key = `fac_${name}_${s}`;
+    delete _cache[key];
+    try { localStorage.removeItem('hkk_'+key); } catch(e) {}
+    if (_dbRoot) _dbRoot.child(key).remove();
   });
   renderFacilityList();
   buildNav();
@@ -3888,9 +3897,10 @@ function proceedToNextMeeting() {
 
   // 目標管理データをクリア
   facs.forEach(f => {
-    delete _cache['tgt_' + f];
-    try { localStorage.removeItem('hkk_tgt_' + f); } catch(e) {}
-    if (_dbRoot) _dbRoot.child('tgt_' + f).remove();
+    const key = 'tgt_' + f;
+    delete _cache[key];
+    try { localStorage.removeItem('hkk_' + key); } catch(e) {}
+    if (_dbRoot) _dbRoot.child(key).remove();
   });
 
   buildNav();
@@ -5517,8 +5527,7 @@ function renderTgtMonthlyTableData(data, isOutpatient) {
 }
 // 旧関数を統合版に委譲
 
-
-// _initApp はFirebaseデータロード後に呼ばれる
+// ===== アプリ初期化（Firebaseデータロード後に実行） =====
 function _initApp() {
   initFacilityColors();
   buildNav();
@@ -5526,7 +5535,6 @@ function _initApp() {
   document.getElementById('nav-overview').classList.add('active');
   renderOverview();
 }
-// ※ onAuthStateChanged → _loadFromFirebase → _initApp の順で起動
 </script>
 </body>
 </html>
