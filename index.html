@@ -9,10 +9,10 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.umd.js"></script>
-<!-- Firebase SDK -->
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+<!-- Firebase SDK (jsDelivr CDN) -->
+<script src="https://cdn.jsdelivr.net/npm/firebase@10.12.0/compat/app/index.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/firebase@10.12.0/compat/auth/index.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/firebase@10.12.0/compat/database/index.min.js"></script>
 <style>
 :root {
   --bg: #f4f2ee;
@@ -154,6 +154,118 @@ header h1 { font-size: 14px; font-weight: 600; letter-spacing: 0.02em; }
   font-size: 13px;
 }
 .card-body { padding: 14px 16px; }
+
+/* 基本情報 - コンパクト化 */
+.basic-grid {
+  display: grid;
+  grid-template-columns: 140px 1fr;
+  gap: 8px 16px;
+  align-items: center;
+  margin-bottom: 12px;
+  padding: 10px 14px;
+  background: var(--accent-light);
+  border-radius: 6px;
+  border: 1px solid #c5ddef;
+}
+.basic-grid label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text3);
+  letter-spacing: 0.04em;
+}
+.basic-grid .val {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--accent);
+}
+.basic-grid input[type="text"] {
+  width: 100%;
+  height: 30px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 0 8px;
+  font-size: 13px;
+  font-family: inherit;
+  background: #fff;
+  color: var(--text);
+}
+.basic-grid input[type="text"]:focus {
+  outline: none;
+  border-color: var(--accent2);
+  box-shadow: 0 0 0 2px rgba(45,122,181,0.12);
+}
+
+/* 人員数グリッド */
+.staffing-outer {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.staffing-block {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.staffing-block-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text3);
+  background: var(--surface2);
+  padding: 5px 10px;
+  border-bottom: 1px solid var(--border);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.staffing-row {
+  display: flex;
+  align-items: center;
+  padding: 5px 10px;
+  gap: 8px;
+  border-bottom: 1px solid var(--border);
+}
+.staffing-row:last-child { border-bottom: none; }
+.staffing-row label {
+  font-size: 11px;
+  color: var(--text3);
+  width: 80px;
+  flex-shrink: 0;
+}
+.staffing-row input[type="number"] {
+  width: 80px;
+  height: 28px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 0 6px;
+  font-size: 13px;
+  text-align: right;
+  font-family: inherit;
+  background: #fff;
+  color: var(--text);
+}
+.staffing-row input[type="number"]:focus {
+  outline: none;
+  border-color: var(--accent2);
+  box-shadow: 0 0 0 2px rgba(45,122,181,0.12);
+}
+.staffing-row input.readonly {
+  background: var(--surface2);
+  color: var(--text3);
+}
+.staffing-row input.total-highlight {
+  background: var(--accent-light);
+  color: var(--accent);
+  font-weight: 700;
+}
+.staffing-sub-title {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text3);
+  background: var(--bg);
+  padding: 3px 10px;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  letter-spacing: 0.05em;
+}
 
 /* 上下ボタン（スピナー）を全数値入力から廃止 */
 input[type="number"]::-webkit-inner-spin-button,
@@ -1506,8 +1618,44 @@ tr.action-保留 td { background:#fff5f5 !important; }
       <div class="page-title" id="facility-view-title"></div>
       <div class="page-subtitle">各セクションを入力してください</div>
 
-      <!-- 報告者名（非表示・同期用） -->
-      <input type="hidden" id="f-reporter">
+      <!-- 基本情報・人員数 -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title"><span class="icon">🏥</span>基本情報・人員数</div>
+        </div>
+        <div class="card-body">
+          <div class="basic-grid" style="margin-bottom:12px;">
+            <label>施設名</label>
+            <div class="val" id="f-facility-name">—</div>
+            <label>報告者名</label>
+            <input type="text" id="f-reporter" placeholder="氏名">
+          </div>
+          <p class="form-title">人員数</p>
+          <div class="staffing-outer">
+            <!-- 左：常勤・非常勤 -->
+            <div class="staffing-block">
+              <div class="staffing-block-title">常勤</div>
+              <div class="staffing-row"><label>男</label><input type="number" id="f-jokin-m" min="0" step="0.1" value="0" oninput="calcTotals()"></div>
+              <div class="staffing-row"><label>女</label><input type="number" id="f-jokin-f" min="0" step="0.1" value="0" oninput="calcTotals()"></div>
+              <div class="staffing-row"><label>合計</label><input type="number" id="f-jokin-total" min="0" step="0.1" value="0" readonly class="readonly"></div>
+              <div class="staffing-sub-title">非常勤</div>
+              <div class="staffing-row"><label>男</label><input type="number" id="f-hjokin-m" min="0" step="0.1" value="0" oninput="calcTotals()"></div>
+              <div class="staffing-row"><label>女</label><input type="number" id="f-hjokin-f" min="0" step="0.1" value="0" oninput="calcTotals()"></div>
+              <div class="staffing-row"><label>合計</label><input type="number" id="f-hjokin-total" min="0" step="0.1" value="0" readonly class="readonly"></div>
+            </div>
+            <!-- 右：その他・集計 -->
+            <div class="staffing-block">
+              <div class="staffing-block-title">その他</div>
+              <div class="staffing-row"><label>長期休暇など</label><input type="number" id="f-kyuka" min="0" step="0.1" value="0" oninput="calcTotals()"></div>
+              <div class="staffing-row"><label>応援人員</label><input type="number" id="f-ouen-num" min="0" step="0.1" value="0" oninput="calcTotals()"></div>
+              <div class="staffing-row"><label>事務職・他</label><input type="number" id="f-jimu" min="0" step="0.1" value="0" oninput="calcTotals()"></div>
+              <div class="staffing-row"><label>定員</label><input type="number" id="f-teiin" min="0" step="0.1" value="0"></div>
+              <div class="staffing-sub-title">集計</div>
+              <div class="staffing-row"><label style="font-weight:700;color:var(--accent);">総合計</label><input type="number" id="f-total" min="0" step="0.1" value="0" readonly class="total-highlight"></div>
+            </div>
+          </div>
+        </div>
+      </div>
 
       <!-- 人事 -->
       <div class="card">
@@ -2118,6 +2266,14 @@ function initFacilityColors() {
 }
 
 // ===== Firebase 初期化 =====
+if (typeof firebase === 'undefined') {
+  document.body.innerHTML = '<div style="padding:40px;font-family:sans-serif;color:#c00;">' +
+    '<h2>⚠️ Firebase SDKの読み込みに失敗しました</h2>' +
+    '<p>インターネット接続を確認して、ページを再読み込みしてください。</p>' +
+    '<button onclick="location.reload()" style="padding:10px 20px;font-size:14px;cursor:pointer;">再読み込み</button>' +
+    '</div>';
+  throw new Error('Firebase SDK not loaded');
+}
 const firebaseConfig = {
   apiKey: "AIzaSyCOQbcq8KWcQQlrNZitOBoGDsqZLerq6Ss",
   authDomain: "kaigi-mae-hokoku.firebaseapp.com",
@@ -2135,6 +2291,8 @@ const db   = firebase.database();
 // ローカルキャッシュ（画面描画はこちらから即時読む）
 const _cache = {};
 let _dbRoot = null; // ログイン後に設定：db.ref('hkk') （全施設共有）
+let _fbListener = null;      // リアルタイムリスナー参照（ログアウト時にデタッチ用）
+let _appInitialized = false; // _initAppの多重呼び出し防止
 
 // syncTimer: 書き込みを300msデバウンスしてFirebaseへ
 let _syncTimer = null;
@@ -2220,26 +2378,66 @@ auth.onAuthStateChanged(user => {
     document.getElementById('login-screen').classList.add('active');
     const ui = document.getElementById('user-info');
     if (ui) ui.style.display = 'none';
+    // リアルタイムリスナーをデタッチ
+    if (_fbListener && _dbRoot) {
+      _dbRoot.off('value', _fbListener);
+      _fbListener = null;
+    }
+    _appInitialized = false;
     _dbRoot = null;
   }
 });
 
-// Firebaseからデータを一括ロードしてキャッシュに展開
+// Firebaseからデータを一括ロードしてキャッシュに展開（リアルタイムリスナー）
 function _loadFromFirebase() {
-  _dbRoot.once('value').then(snap => {
+  // 既存リスナーがあれば先にデタッチ
+  if (_fbListener) {
+    _dbRoot.off('value', _fbListener);
+    _fbListener = null;
+  }
+  _appInitialized = false;
+
+  _fbListener = _dbRoot.on('value', snap => {
     const data = snap.val() || {};
     // キャッシュとlocalStorageに展開
     for (const [k, v] of Object.entries(data)) {
       _cache[k] = v;
       try { localStorage.setItem('hkk_'+k, JSON.stringify(v)); } catch(e) {}
     }
-    // アプリ初期化（データロード後に実行）
-    _initApp();
-  }).catch(err => {
+    if (!_appInitialized) {
+      // 初回：アプリ初期化
+      _appInitialized = true;
+      _initApp();
+    } else {
+      // 2回目以降：他端末からの変更を受信 → 現在表示中のビューを再描画
+      _onRemoteUpdate();
+    }
+  }, err => {
     console.error('Firebaseデータ読み込みエラー:', err);
-    // エラー時はローカルキャッシュで起動
-    _initApp();
+    if (!_appInitialized) {
+      _appInitialized = true;
+      _initApp();
+    }
   });
+}
+
+// 他端末の変更受信時：現在開いているビューのみ再描画
+function _onRemoteUpdate() {
+  // 施設入力ビューが開いていれば、フォームを再ロード（ユーザーが入力中でない場合のみ）
+  if (currentFacility) {
+    const facilityView = document.getElementById('view-facility');
+    if (facilityView && facilityView.classList.contains('active')) {
+      // フォーカスが当たっている要素があれば再描画しない（入力中の可能性）
+      const focused = document.activeElement;
+      const isInputting = focused && facilityView.contains(focused) &&
+        (focused.tagName === 'INPUT' || focused.tagName === 'TEXTAREA' || focused.tagName === 'SELECT');
+      if (!isInputting) {
+        loadFacilityData(currentFacility);
+      }
+    }
+  }
+  // サイドバーのドット（入力状況）を更新
+  if (typeof buildNav === 'function') buildNav();
 }
 
 // ===== 設定読み込み =====
@@ -2535,13 +2733,24 @@ function openFacility(f) {
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   document.getElementById('view-facility').classList.add('active');
   document.getElementById('facility-view-title').textContent = `🏥 ${f}`;
+  const fnEl = document.getElementById('f-facility-name');
+  if (fnEl) fnEl.textContent = f;
   loadFacilityData(f);
 }
 
 // ===== 施設データをフォームへ =====
 function loadFacilityData(f) {
   const b = getFacilityData(f, 'basic', {});
-  document.getElementById('f-reporter').value = b.reporter || '';
+  document.getElementById('f-reporter').value  = b.reporter || '';
+  document.getElementById('f-jokin-m').value   = b.jokin_m  !== undefined ? b.jokin_m  : 0;
+  document.getElementById('f-jokin-f').value   = b.jokin_f  !== undefined ? b.jokin_f  : 0;
+  document.getElementById('f-hjokin-m').value  = b.hjokin_m !== undefined ? b.hjokin_m : 0;
+  document.getElementById('f-hjokin-f').value  = b.hjokin_f !== undefined ? b.hjokin_f : 0;
+  document.getElementById('f-kyuka').value     = b.kyuka    !== undefined ? b.kyuka    : 0;
+  document.getElementById('f-ouen-num').value  = b.ouen_num !== undefined ? b.ouen_num : 0;
+  document.getElementById('f-jimu').value      = b.jimu     !== undefined ? b.jimu     : 0;
+  document.getElementById('f-teiin').value     = b.teiin    !== undefined ? b.teiin    : 0;
+  calcTotals();
 
   const loadTable = (section, tableId, defaultRows, adder) => {
     const data = getFacilityData(f, section, []);
@@ -2618,12 +2827,35 @@ function addRow(tableId, data={}) {
   body.appendChild(tr);
 }
 
+// ===== 人員数合計計算 =====
+function calcTotals() {
+  const n = id => parseFloat(document.getElementById(id)?.value) || 0;
+  const jm = n('f-jokin-m'), jf = n('f-jokin-f');
+  const hm = n('f-hjokin-m'), hf = n('f-hjokin-f');
+  const t1 = Math.round((jm + jf) * 10) / 10;
+  const t2 = Math.round((hm + hf) * 10) / 10;
+  const jokinTotalEl  = document.getElementById('f-jokin-total');
+  const hjokinTotalEl = document.getElementById('f-hjokin-total');
+  const totalEl       = document.getElementById('f-total');
+  if (jokinTotalEl)  jokinTotalEl.value  = t1;
+  if (hjokinTotalEl) hjokinTotalEl.value = t2;
+  if (totalEl)       totalEl.value = Math.round((jm + jf + hm + hf + n('f-kyuka') + n('f-ouen-num') + n('f-jimu')) * 10) / 10;
+}
+
 // ===== 全セクション一括保存 =====
 function saveAll() {
   if (!currentFacility) return;
 
   setFacilityData(currentFacility, 'basic', {
     reporter: document.getElementById('f-reporter').value,
+    jokin_m:  parseFloat(document.getElementById('f-jokin-m').value)  || 0,
+    jokin_f:  parseFloat(document.getElementById('f-jokin-f').value)  || 0,
+    hjokin_m: parseFloat(document.getElementById('f-hjokin-m').value) || 0,
+    hjokin_f: parseFloat(document.getElementById('f-hjokin-f').value) || 0,
+    kyuka:    parseFloat(document.getElementById('f-kyuka').value)    || 0,
+    ouen_num: parseFloat(document.getElementById('f-ouen-num').value) || 0,
+    jimu:     parseFloat(document.getElementById('f-jimu').value)     || 0,
+    teiin:    parseFloat(document.getElementById('f-teiin').value)    || 0,
   });
 
   // 引き継ぎフラグを含めてrow収集するヘルパー
