@@ -4160,6 +4160,12 @@ function addMinBlock(listId, defaultTitle) {
       <textarea class="min-textarea" placeholder="内容を入力してください..."></textarea>
     </div>`;
   list.appendChild(div);
+  // 追加後にロック状態を再適用（ロック中のセクションなら即disabled）
+  const section = list.closest('[data-lock-section]');
+  if (section) {
+    const sid = section.dataset.lockSection;
+    if (_currentLocks[sid]) _applyLockUI(sid, _currentLocks[sid]);
+  }
 }
 
 // ブロックの番号を振り直す
@@ -4357,11 +4363,12 @@ function _getLockUserName() {
   return u.displayName || u.email?.split('@')[0] || '不明';
 }
 
-// locksRefを会議日に合わせて更新
+// locksRefを会議日に合わせて更新（会議日未設定時はdraftパス）
 function _updateLocksRef() {
+  if (!_dbRoot) { _locksRef = null; return; }
   const md = getMeetingDate();
-  if (!md || !_dbRoot) { _locksRef = null; return; }
-  _locksRef = db.ref(`hkk/minutes/${md.replace(/-/g,'')}/locks`);
+  const key = md ? md.replace(/-/g,'') : 'draft';
+  _locksRef = db.ref(`hkk/minutes/${key}/locks`);
 }
 
 // ロックを取得する
@@ -4410,14 +4417,24 @@ function _applyLockUI(sectionId, lock) {
   el.querySelector('.min-lock-bar')?.remove();
   el.classList.remove('is-locked', 'is-self-locked');
 
+  // セクション内のinput/textarea/select/buttonのdisabledを一旦解除
+  el.querySelectorAll('textarea, input, select, button').forEach(i => {
+    i.disabled = false;
+    i.style.opacity = '';
+  });
+
   if (!lock) return; // ロックなし
 
   if (lock.userName === me) {
-    // 自分がロック中
+    // 自分がロック中 → 緑ハイライトのみ
     el.classList.add('is-self-locked');
   } else {
-    // 他ユーザーがロック中
+    // 他ユーザーがロック中 → 全要素をdisabledにしてバー表示
     el.classList.add('is-locked');
+    el.querySelectorAll('textarea, input, select, button').forEach(i => {
+      i.disabled = true;
+      i.style.opacity = '0.5';
+    });
     const t = new Date(lock.lockedAt).toLocaleTimeString('ja-JP', { hour:'2-digit', minute:'2-digit' });
     const bar = document.createElement('div');
     bar.className = 'min-lock-bar';
