@@ -2732,12 +2732,6 @@ function renderOverview() {
 
 // ===== 施設を開く =====
 function openFacility(f) {
-  // 切り替え前に現在の施設データを即時保存（Firebase受信完了済みの場合のみ）
-  if (currentFacility && currentFacility !== f && _fbReady) {
-    clearTimeout(_syncTimer);
-    saveAll();
-    _flushToFirebase();
-  }
   currentFacility = f;
   document.querySelectorAll('.sidebar-item').forEach(i => i.classList.remove('active'));
   const navEl = document.getElementById(`nav-${f}`);
