@@ -2391,11 +2391,26 @@ function _loadFromFirebase() {
   _fbReady = false;
   _fbListener = _dbRoot.on('value', snap => {
     const data = snap.val() || {};
+    if (!_appInitialized) {
+      // 初回受信：localStorageの古いデータを完全クリアしてからFirebaseデータを展開
+      // hkk_プレフィックスのキーをすべて削除
+      try {
+        const keysToRemove = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i);
+          if (k && k.startsWith('hkk_')) keysToRemove.push(k);
+        }
+        keysToRemove.forEach(k => localStorage.removeItem(k));
+      } catch(e) {}
+      // _cacheも完全クリア
+      Object.keys(_cache).forEach(k => delete _cache[k]);
+    }
+    // Firebaseデータを_cacheとlocalStorageに展開
     for (const [k, v] of Object.entries(data)) {
       _cache[k] = v;
       try { localStorage.setItem('hkk_'+k, JSON.stringify(v)); } catch(e) {}
     }
-    _fbReady = true;  // Firebaseからの受信完了
+    _fbReady = true;
     if (!_appInitialized) {
       _appInitialized = true;
       _initApp();
