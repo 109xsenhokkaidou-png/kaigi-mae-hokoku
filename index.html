@@ -393,6 +393,18 @@ select {
   margin-bottom: 16px;
   flex-wrap: wrap;
 }
+
+/* 施設発表用タブバーを固定 */
+#summary-sticky-header {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: var(--bg);
+  padding-bottom: 2px;
+  margin: -20px -20px 0;
+  padding: 16px 20px 0;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+}
 .tab {
   padding: 7px 16px;
   font-size: 12px;
@@ -1603,12 +1615,16 @@ tr.action-保留 td { background:#fff5f5 !important; }
 
     <!-- ===== サマリービュー ===== -->
     <div id="view-summary" class="view">
-      <div class="page-title">📋 各施設発表用</div>
-      <div class="page-subtitle" id="summary-date-label">—</div>
-      <!-- 施設タブ -->
-      <div class="tabs" id="summary-facility-tabs" style="flex-wrap:wrap;"></div>
+      <!-- 固定ヘッダー：タイトル＋施設タブ -->
+      <div id="summary-sticky-header">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:2px;">
+          <div class="page-title" style="margin-bottom:0;">📋 各施設発表用</div>
+          <div class="page-subtitle" id="summary-date-label" style="margin:0;">—</div>
+        </div>
+        <div class="tabs" id="summary-facility-tabs" style="flex-wrap:wrap;margin-bottom:0;"></div>
+      </div>
       <!-- 施設別コンテンツ -->
-      <div id="summary-facility-contents"></div>
+      <div id="summary-facility-contents" style="margin-top:16px;"></div>
     </div>
 
     <!-- ===== 施設入力ビュー ===== -->
@@ -2403,6 +2419,11 @@ function _onRemoteUpdate() {
       if (!isInputting) loadFacilityData(currentFacility);
     }
   }
+  // 全施設一覧・施設発表用も再描画（表示中のビューのみ）
+  const overviewView = document.getElementById('view-overview');
+  if (overviewView && overviewView.classList.contains('active')) renderOverview();
+  const summaryView = document.getElementById('view-summary');
+  if (summaryView && summaryView.classList.contains('active')) renderSummary();
   if (typeof buildNav === 'function') buildNav();
 }
 
@@ -2692,6 +2713,13 @@ function renderOverview() {
 
 // ===== 施設を開く =====
 function openFacility(f) {
+  // 切り替え前に現在の施設データを即時保存（デバウンス待ちのものも含めて）
+  if (currentFacility && currentFacility !== f) {
+    clearTimeout(_syncTimer);
+    saveAll();
+    // pendingWritesをFirebaseに即時フラッシュ
+    _flushToFirebase();
+  }
   currentFacility = f;
   document.querySelectorAll('.sidebar-item').forEach(i => i.classList.remove('active'));
   const navEl = document.getElementById(`nav-${f}`);
