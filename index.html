@@ -4413,8 +4413,9 @@ function _applyLockUI(sectionId, lock) {
   const me = _getLockUserName();
   const header = el.querySelector('.min-section-header');
 
-  // 既存のロックバーを削除
+  // 既存のロックバー・編集完了ボタンを削除
   el.querySelector('.min-lock-bar')?.remove();
+  el.querySelector('.min-unlock-btn')?.remove();
   el.classList.remove('is-locked', 'is-self-locked');
 
   // セクション内のinput/textarea/select/buttonのdisabledを一旦解除
@@ -4426,8 +4427,17 @@ function _applyLockUI(sectionId, lock) {
   if (!lock) return; // ロックなし
 
   if (lock.userName === me) {
-    // 自分がロック中 → 緑ハイライトのみ
+    // 自分がロック中 → 緑ハイライト ＋「編集完了」ボタン
     el.classList.add('is-self-locked');
+    const btn = document.createElement('button');
+    btn.className = 'btn btn-secondary btn-sm min-unlock-btn';
+    btn.style.cssText = 'font-size:11px;padding:3px 10px;border-color:#6ee7b7;color:#065f46;';
+    btn.textContent = '🔓 編集完了';
+    btn.onclick = () => {
+      clearTimeout(_lockTimeouts[sectionId]);
+      _releaseLock(sectionId);
+    };
+    header.appendChild(btn);
   } else {
     // 他ユーザーがロック中 → 全要素をdisabledにしてバー表示
     el.classList.add('is-locked');
