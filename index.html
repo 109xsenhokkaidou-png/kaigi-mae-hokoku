@@ -2745,10 +2745,12 @@ function loadFacilityData(f) {
   document.getElementById('f-teiin').value    = b.teiin    || 0;
   calcTotals();
 
-  const loadTable = (section, tableId, defaultRows, adder) => {
-    const data = getFacilityData(f, section, []);
+  const loadTable = (section, tableId, defaultRows) => {
+    // null = 一度も保存されていない初回 → デフォルト行を追加
+    // [] = ユーザーが意図的に全削除して保存済み → 空テーブルのまま
+    const data = getFacilityData(f, section, null);
     document.getElementById(tableId.replace('-table','-body')).innerHTML = '';
-    if (data.length === 0) { for(let i=0;i<defaultRows;i++) addRow(tableId); }
+    if (data === null) { for(let i=0;i<defaultRows;i++) addRow(tableId); }
     else data.forEach(r => addRow(tableId, r));
   };
   loadTable('jinji', 'jinji-table', 3);
@@ -3892,20 +3894,34 @@ function proceedToNextMeeting() {
       teiin:    b.teiin    || 0,
     });
 
-    // 引き継ぎフラグ=trueの行だけ残す
+    // 引き継ぎフラグ=trueの行だけ残す。0行の場合はキー削除（初回状態に戻す）
     ['jinji','ouen','souchi-new','souchi-fail'].forEach(sec => {
       const rows = getFacilityData(f, sec, []);
-      setFacilityData(f, sec, rows.filter(r => r.carry === true));
+      const carry = rows.filter(r => r.carry === true);
+      if (carry.length > 0) {
+        setFacilityData(f, sec, carry);
+      } else {
+        // キーを削除して「一度も保存されていない初回」状態に戻す
+        const key = `fac_${f}_${sec}`;
+        delete _cache[key];
+        try { localStorage.removeItem('hkk_' + key); } catch(e) {}
+        if (_dbRoot) _dbRoot.child(key).remove();
+      }
     });
 
-    // その他：引き継ぎフラグに応じてテキスト保持
+    // その他：引き継ぎフラグに応じてテキスト保持。空ならキー削除
     const sonotaRaw = getFacilityData(f, 'sonota', '');
     const sonotaObj = (typeof sonotaRaw === 'object' && sonotaRaw !== null)
       ? sonotaRaw : { text: sonotaRaw, carry: false };
-    setFacilityData(f, 'sonota', {
-      text:  sonotaObj.carry ? sonotaObj.text : '',
-      carry: false,
-    });
+    const sonotaText = sonotaObj.carry ? sonotaObj.text : '';
+    if (sonotaText) {
+      setFacilityData(f, 'sonota', { text: sonotaText, carry: false });
+    } else {
+      const key = `fac_${f}_sonota`;
+      delete _cache[key];
+      try { localStorage.removeItem('hkk_' + key); } catch(e) {}
+      if (_dbRoot) _dbRoot.child(key).remove();
+    }
   });
 
   // 会議日リセット
