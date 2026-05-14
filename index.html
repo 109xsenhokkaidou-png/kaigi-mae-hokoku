@@ -397,12 +397,11 @@ select {
 /* 施設発表用タブバーを固定 */
 #summary-sticky-header {
   position: sticky;
-  top: 0;
+  top: -20px;       /* .mainのpadding-top(20px)分だけ上にずらして隙間を消す */
   z-index: 50;
   background: var(--bg);
-  padding-bottom: 2px;
   margin: -20px -20px 0;
-  padding: 16px 20px 0;
+  padding: 20px 20px 0;
   box-shadow: 0 2px 8px rgba(0,0,0,0.07);
 }
 .tab {
@@ -2300,6 +2299,7 @@ let _fbListener = null;
 let _appInitialized = false;
 let _syncTimer = null;
 const _pendingWrites = {};
+let _fbReady = false;  // Firebaseから初回データ受信完了フラグ
 
 function _showSync(on) {
   const el = document.getElementById('sync-indicator');
@@ -2377,6 +2377,7 @@ auth.onAuthStateChanged(user => {
       _fbListener = null;
     }
     _appInitialized = false;
+    _fbReady = false;
     _dbRoot = null;
   }
 });
@@ -2387,12 +2388,14 @@ function _loadFromFirebase() {
     _fbListener = null;
   }
   _appInitialized = false;
+  _fbReady = false;
   _fbListener = _dbRoot.on('value', snap => {
     const data = snap.val() || {};
     for (const [k, v] of Object.entries(data)) {
       _cache[k] = v;
       try { localStorage.setItem('hkk_'+k, JSON.stringify(v)); } catch(e) {}
     }
+    _fbReady = true;  // Firebaseからの受信完了
     if (!_appInitialized) {
       _appInitialized = true;
       _initApp();
@@ -2401,6 +2404,7 @@ function _loadFromFirebase() {
     }
   }, err => {
     console.error('Firebaseデータ読み込みエラー:', err);
+    _fbReady = true;  // エラー時もローカルで動作継続
     if (!_appInitialized) {
       _appInitialized = true;
       _initApp();
@@ -2713,11 +2717,10 @@ function renderOverview() {
 
 // ===== 施設を開く =====
 function openFacility(f) {
-  // 切り替え前に現在の施設データを即時保存（デバウンス待ちのものも含めて）
-  if (currentFacility && currentFacility !== f) {
+  // 切り替え前に現在の施設データを即時保存（Firebase受信完了済みの場合のみ）
+  if (currentFacility && currentFacility !== f && _fbReady) {
     clearTimeout(_syncTimer);
     saveAll();
-    // pendingWritesをFirebaseに即時フラッシュ
     _flushToFirebase();
   }
   currentFacility = f;
@@ -2837,6 +2840,11 @@ function addRow(tableId, data={}) {
 // ===== 全セクション一括保存 =====
 function saveAll() {
   if (!currentFacility) return;
+  // Firebase未受信状態での保存は古いデータ上書きリスクあり → ブロック
+  if (!_fbReady) {
+    showToast('データ同期中です。少し待ってから保存してください。', 'error');
+    return;
+  }
 
   setFacilityData(currentFacility, 'basic', {
     reporter: document.getElementById('f-reporter').value,
