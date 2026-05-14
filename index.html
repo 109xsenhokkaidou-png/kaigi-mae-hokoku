@@ -1523,6 +1523,36 @@ tr.action-保留 td { background:#fff5f5 !important; }
 }
 #sync-indicator.active { display: block; }
 
+/* ===== 議事録ロック ===== */
+.min-lock-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #b45309;
+  background: #fef3c7;
+  border: 1px solid #fcd34d;
+  border-radius: 5px;
+  padding: 4px 10px;
+  margin-bottom: 8px;
+}
+.min-section.is-locked .min-section-body textarea,
+.min-section.is-locked .min-section-body input,
+.min-section.is-locked .min-section-body select {
+  pointer-events: none;
+  opacity: 0.55;
+  background: var(--surface2) !important;
+}
+.min-section.is-locked .btn {
+  pointer-events: none;
+  opacity: 0.4;
+}
+.min-section.is-self-locked .min-section-header {
+  background: #ecfdf5;
+  border-bottom-color: #6ee7b7;
+}
+
 </style>
 </head>
 <body>
@@ -1945,7 +1975,7 @@ tr.action-保留 td { background:#fff5f5 !important; }
       </div>
 
       <!-- ② 冒頭報告・連絡事項 -->
-      <div class="min-section">
+      <div class="min-section" data-lock-section="notices">
         <div class="min-section-header">
           <div class="min-section-title"><span class="icon">📣</span>② 冒頭報告・連絡事項</div>
           <button class="btn btn-secondary btn-sm" onclick="addMinBlock('notices-list','連絡事項')">＋ 追加</button>
@@ -1956,7 +1986,7 @@ tr.action-保留 td { background:#fff5f5 !important; }
       </div>
 
       <!-- ③ 各施設近況報告 -->
-      <div class="min-section">
+      <div class="min-section" data-lock-section="facreport">
         <div class="min-section-header">
           <div class="min-section-title"><span class="icon">🏥</span>③ 各施設近況報告</div>
           <button class="btn btn-secondary btn-sm" onclick="refreshFacilityReports()">🔄 最新データを反映</button>
@@ -1974,7 +2004,7 @@ tr.action-保留 td { background:#fff5f5 !important; }
       </div>
 
       <!-- ④ セミナー報告 -->
-      <div class="min-section">
+      <div class="min-section" data-lock-section="seminar">
         <div class="min-section-header">
           <div class="min-section-title"><span class="icon">📊</span>④ セミナー報告・四半期報告</div>
           <button class="btn btn-secondary btn-sm" onclick="addMinBlock('seminar-list','報告事項')">＋ 追加</button>
@@ -1985,7 +2015,7 @@ tr.action-保留 td { background:#fff5f5 !important; }
       </div>
 
       <!-- ⑤ 討議事項・情報共有 -->
-      <div class="min-section">
+      <div class="min-section" data-lock-section="agenda">
         <div class="min-section-header">
           <div class="min-section-title"><span class="icon">💬</span>⑤ 討議事項・情報共有</div>
           <button class="btn btn-secondary btn-sm" onclick="addMinBlock('agenda-list','討議事項')">＋ 追加</button>
@@ -1996,7 +2026,7 @@ tr.action-保留 td { background:#fff5f5 !important; }
       </div>
 
       <!-- ⑥ 決定事項・アクション管理 -->
-      <div class="min-section">
+      <div class="min-section" data-lock-section="actions">
         <div class="min-section-header">
           <div class="min-section-title"><span class="icon">✅</span>⑥ 決定事項・アクション管理</div>
           <button class="btn btn-secondary btn-sm" onclick="addActionRow()">＋ 行追加</button>
@@ -2019,7 +2049,7 @@ tr.action-保留 td { background:#fff5f5 !important; }
       </div>
 
       <!-- ⑦ 次回会議情報 -->
-      <div class="min-section">
+      <div class="min-section" data-lock-section="next">
         <div class="min-section-header">
           <div class="min-section-title"><span class="icon">🗓</span>⑦ 次回会議情報</div>
         </div>
@@ -2376,6 +2406,8 @@ auth.onAuthStateChanged(user => {
       _dbRoot.off('value', _fbListener);
       _fbListener = null;
     }
+    _releaseAllMyLocks();
+    _stopLockListeners();
     _appInitialized = false;
     _fbReady = false;
     _dbRoot = null;
@@ -2534,7 +2566,7 @@ function showView(viewId) {
   if (viewId === 'summary')  renderSummary();
   if (viewId === 'overview') renderOverview();
   if (viewId === 'settings') renderSettings();
-  if (viewId === 'minutes')  renderMinutesView();
+  if (viewId === 'minutes') { renderMinutesView(); _onMinutesViewOpen(); }
   if (viewId === 'archive')  renderArchiveView();
   if (viewId === 'target-upload') renderTargetUploadPage();
   if (viewId === 'target-graph')  renderTargetGraphPage();
@@ -4307,13 +4339,171 @@ function collectMinutesData() {
   };
 }
 
+// ===== 議事録ロック機能 =====
+
+// セクションID → Firebaseロックパス
+const LOCK_SECTIONS = ['notices','facreport','seminar','agenda','actions','next'];
+
+let _locksRef = null;          // Firebase locks ref（会議日が確定したら設定）
+let _lockListeners = {};       // sectionId → Firebase listener
+let _lockTimeouts = {};        // sectionId → focusout 5分タイマー
+let _lockPollTimer = null;     // 30秒ポーリングタイマー
+let _currentLocks = {};        // sectionId → { userName, lockedAt }
+
+// ログインユーザー名（displayName優先、なければemail前半）
+function _getLockUserName() {
+  const u = auth.currentUser;
+  if (!u) return '不明';
+  return u.displayName || u.email?.split('@')[0] || '不明';
+}
+
+// locksRefを会議日に合わせて更新
+function _updateLocksRef() {
+  const md = getMeetingDate();
+  if (!md || !_dbRoot) { _locksRef = null; return; }
+  _locksRef = db.ref(`hkk/minutes/${md.replace(/-/g,'')}/locks`);
+}
+
+// ロックを取得する
+function _acquireLock(sectionId) {
+  _updateLocksRef();
+  if (!_locksRef) return;
+  const lockRef = _locksRef.child(sectionId);
+  lockRef.once('value').then(snap => {
+    const lock = snap.val();
+    const me = _getLockUserName();
+    // 他ユーザーがロック中なら取得しない
+    if (lock && lock.userName && lock.userName !== me) return;
+    // onDisconnect: ブラウザ閉じたら自動解除
+    lockRef.onDisconnect().remove();
+    lockRef.set({ userName: me, lockedAt: Date.now() });
+  });
+}
+
+// ロックを解除する
+function _releaseLock(sectionId) {
+  _updateLocksRef();
+  if (!_locksRef) return;
+  const me = _getLockUserName();
+  _locksRef.child(sectionId).once('value').then(snap => {
+    const lock = snap.val();
+    if (lock && lock.userName === me) {
+      _locksRef.child(sectionId).remove();
+    }
+  });
+  _locksRef.child(sectionId).onDisconnect().cancel();
+}
+
+// 自分が持つ全ロックを解除（保存時・ページ離脱時）
+function _releaseAllMyLocks() {
+  LOCK_SECTIONS.forEach(sid => _releaseLock(sid));
+}
+
+// ロック状態をUIに反映
+function _applyLockUI(sectionId, lock) {
+  const el = document.querySelector(`[data-lock-section="${sectionId}"]`);
+  if (!el) return;
+  const me = _getLockUserName();
+  const header = el.querySelector('.min-section-header');
+
+  // 既存のロックバーを削除
+  el.querySelector('.min-lock-bar')?.remove();
+  el.classList.remove('is-locked', 'is-self-locked');
+
+  if (!lock) return; // ロックなし
+
+  if (lock.userName === me) {
+    // 自分がロック中
+    el.classList.add('is-self-locked');
+  } else {
+    // 他ユーザーがロック中
+    el.classList.add('is-locked');
+    const t = new Date(lock.lockedAt).toLocaleTimeString('ja-JP', { hour:'2-digit', minute:'2-digit' });
+    const bar = document.createElement('div');
+    bar.className = 'min-lock-bar';
+    bar.textContent = `🔒 ${lock.userName}さんが編集中（${t}〜）`;
+    header.after(bar);
+  }
+}
+
+// Firebaseロック状態をリアルタイム購読
+function _startLockListeners() {
+  _stopLockListeners();
+  _updateLocksRef();
+  if (!_locksRef) return;
+
+  LOCK_SECTIONS.forEach(sid => {
+    const ref = _locksRef.child(sid);
+    _lockListeners[sid] = ref.on('value', snap => {
+      const lock = snap.val();
+      _currentLocks[sid] = lock;
+      _applyLockUI(sid, lock);
+    });
+  });
+
+  // 30秒ポーリング（表示時刻の更新用）
+  clearInterval(_lockPollTimer);
+  _lockPollTimer = setInterval(() => {
+    LOCK_SECTIONS.forEach(sid => _applyLockUI(sid, _currentLocks[sid] || null));
+  }, 30000);
+}
+
+// リスナー停止
+function _stopLockListeners() {
+  if (_locksRef) {
+    LOCK_SECTIONS.forEach(sid => {
+      if (_lockListeners[sid]) {
+        _locksRef.child(sid).off('value', _lockListeners[sid]);
+      }
+    });
+  }
+  _lockListeners = {};
+  _currentLocks = {};
+  clearInterval(_lockPollTimer);
+}
+
+// 議事録ビューのfocus/focusoutイベントを登録
+function _initLockEvents() {
+  const view = document.getElementById('view-minutes');
+  if (!view || view.dataset.lockEventsInit) return;
+  view.dataset.lockEventsInit = '1';
+
+  view.addEventListener('focusin', e => {
+    const section = e.target.closest('[data-lock-section]');
+    if (!section) return;
+    const sid = section.dataset.lockSection;
+    // 5分タイマーをキャンセル
+    clearTimeout(_lockTimeouts[sid]);
+    _acquireLock(sid);
+  });
+
+  view.addEventListener('focusout', e => {
+    const section = e.target.closest('[data-lock-section]');
+    if (!section) return;
+    const sid = section.dataset.lockSection;
+    // 5分後に自動解除
+    clearTimeout(_lockTimeouts[sid]);
+    _lockTimeouts[sid] = setTimeout(() => _releaseLock(sid), 5 * 60 * 1000);
+  });
+}
+
+// 議事録ビューを開いたときにロック購読開始
+function _onMinutesViewOpen() {
+  _updateLocksRef();
+  _startLockListeners();
+  _initLockEvents();
+}
+
+// ページ離脱時に全ロック解除
+window.addEventListener('beforeunload', _releaseAllMyLocks);
+
 function saveMinutes() {
   const data = collectMinutesData();
-  // 会議日があれば会議日キー、なければdraftキーで保存
   const key = getMinutesKey(data.date || 'draft');
   S.set(key, data);
-  // 会議日があり別キーにも念のためコピー保存
   if (data.date) S.set(getMinutesKey('draft'), data);
+  // 保存後に自分のロックを全解除
+  _releaseAllMyLocks();
   const label = document.getElementById('min-save-label');
   label.textContent = `保存済み（${new Date().toLocaleTimeString('ja-JP')}）`;
   label.style.color = 'var(--green)';
