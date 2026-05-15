@@ -2797,8 +2797,8 @@ function loadFacilityData(f) {
     if (data === null) { for(let i=0;i<defaultRows;i++) addRow(tableId); }
     else data.forEach(r => addRow(tableId, r));
   };
-  loadTable('jinji', 'jinji-table', 3);
-  loadTable('ouen',  'ouen-table',  2);
+  loadTable('jinji', 'jinji-table', 1);
+  loadTable('ouen',  'ouen-table',  1);
   loadTable('souchi-new', 'souchi-new-table', 2);
   loadTable('souchi-fail','souchi-fail-table',2);
   // その他：旧形式（文字列）と新形式（オブジェクト）の両方に対応
@@ -2876,6 +2876,15 @@ function addRow(tableId, data={}) {
   }
 
   body.appendChild(tr);
+
+  // Safari対策：date inputにdataがない場合、DOMに追加後に明示的に空文字をセット
+  // （Safariはvalue=""でも当日日付を補完することがあるため）
+  tr.querySelectorAll('input[type="date"]').forEach(el => {
+    if (!el.getAttribute('value')) {
+      el.value = '';
+      el.defaultValue = '';
+    }
+  });
 }
 
 // ===== 全セクション一括保存 =====
