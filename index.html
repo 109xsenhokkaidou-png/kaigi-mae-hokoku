@@ -1330,7 +1330,7 @@ select {
 .arc-none { padding: 14px 16px; font-size: 12px; color: var(--text3); font-style: italic; }
 /* ===== 議事録ビュー ===== */
 .min-section { background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);margin-bottom:14px; }
-.min-section-header { display:flex;align-items:center;justify-content:space-between;padding:10px 16px;background:var(--surface2);border-bottom:1px solid var(--border);border-radius:var(--radius) var(--radius) 0 0; }
+.min-section-header { display:flex;align-items:center;justify-content:flex-start;gap:10px;padding:10px 16px;background:var(--surface2);border-bottom:1px solid var(--border);border-radius:var(--radius) var(--radius) 0 0; }
 .min-section-title { font-size:13px;font-weight:700;color:var(--accent);display:flex;align-items:center;gap:7px; }
 .min-section-body { padding:14px 16px; }
 .min-info-grid { display:grid;grid-template-columns:110px 1fr 110px 1fr;gap:8px 14px;align-items:center;margin-bottom:14px; }
@@ -2834,13 +2834,17 @@ function addRow(tableId, data={}) {
   const del = `<button class="btn btn-danger btn-sm" onclick="this.closest('tr').remove()">✕</button>`;
   const carryChk = (checked) => `<td class="carry-td"><input type="checkbox" class="carry-cb" title="次回会議へ引き継ぐ"${checked?' checked':''}></td>`;
   const carryOn = data.carry === true;
+  // Safari対策：type="date" のvalue属性はHTMLに埋め込まず、DOM追加後にJSでセット
+  const dateInput = `<input type="date">`;
 
   if (tableId === 'jinji-table') {
     const opts = getOpts('jinji-type');
     const ctrl = opts.free
       ? `<input type="text" value="${data.type||''}" placeholder="分類">`
       : `<select>${opts.items.map(t=>`<option${data.type===t?' selected':''}>${t}</option>`).join('')}</select>`;
-    tr.innerHTML = `<td>${ctrl}</td><td><input type="date" value="${data.date||''}"></td><td><input type="text" value="${data.name||''}" placeholder="氏名"></td><td><input type="text" value="${data.note||''}" placeholder="備考"></td>${carryChk(carryOn)}<td>${del}</td>`;
+    tr.innerHTML = `<td>${ctrl}</td><td>${dateInput}</td><td><input type="text" value="${data.name||''}" placeholder="氏名"></td><td><input type="text" value="${data.note||''}" placeholder="備考"></td>${carryChk(carryOn)}<td>${del}</td>`;
+    const [d1] = tr.querySelectorAll('input[type="date"]');
+    if (data.date) d1.value = data.date;
 
   } else if (tableId === 'ouen-table') {
     const facs = getFacilities();
@@ -2850,7 +2854,10 @@ function addRow(tableId, data={}) {
     const typeCtrl = ouenOpts.free
       ? `<input type="text" value="${data.type||''}" placeholder="分類">`
       : `<select>${ouenOpts.items.map(t=>`<option${data.type===t?' selected':''}>${t}</option>`).join('')}</select>`;
-    tr.innerHTML = `<td><select>${facOpts}</select></td><td class="center">→</td><td><select>${facOpts2}</select></td><td>${typeCtrl}</td><td><input type="date" value="${data.date_from||''}"></td><td><input type="date" value="${data.date_to||''}"></td><td><input type="text" value="${data.person||''}" placeholder="氏名"></td><td><input type="text" value="${data.note||''}" placeholder="備考"></td>${carryChk(carryOn)}<td>${del}</td>`;
+    tr.innerHTML = `<td><select>${facOpts}</select></td><td class="center">→</td><td><select>${facOpts2}</select></td><td>${typeCtrl}</td><td>${dateInput}</td><td>${dateInput}</td><td><input type="text" value="${data.person||''}" placeholder="氏名"></td><td><input type="text" value="${data.note||''}" placeholder="備考"></td>${carryChk(carryOn)}<td>${del}</td>`;
+    const [d1, d2] = tr.querySelectorAll('input[type="date"]');
+    if (data.date_from) d1.value = data.date_from;
+    if (data.date_to)   d2.value = data.date_to;
 
   } else if (tableId === 'souchi-new-table') {
     const souchiOpts = getOpts('souchi-type');
@@ -2865,7 +2872,9 @@ function addRow(tableId, data={}) {
       ? `<input type="text" value="${data.device||''}" placeholder="CT・MRI等">`
       : `<select>${sfOpts.items.map(t=>`<option${data.device===t?' selected':''}>${t}</option>`).join('')}</select>`;
     const hoshuSel = `<select><option${data.hoshu==='有'?' selected':''}>有</option><option${data.hoshu==='無'?' selected':''}>無</option></select>`;
-    tr.innerHTML = `<td><input type="date" value="${data.date||''}"></td><td>${deviceCtrl}</td><td><input type="text" value="${data.maker||''}" placeholder="メーカー名"></td><td><input type="text" value="${data.name||''}" placeholder="装置名・型番"></td><td>${hoshuSel}</td><td><div class="amount-wrap"><input type="number" value="${data.amount||''}" placeholder="0" min="0" max="99999999999" step="1" style="text-align:right;width:100%;"><span class="yen">円</span></div></td><td><textarea rows="2" placeholder="故障内容・対応状況など">${data.detail||''}</textarea></td>${carryChk(carryOn)}<td>${del}</td>`;
+    tr.innerHTML = `<td>${dateInput}</td><td>${deviceCtrl}</td><td><input type="text" value="${data.maker||''}" placeholder="メーカー名"></td><td><input type="text" value="${data.name||''}" placeholder="装置名・型番"></td><td>${hoshuSel}</td><td><div class="amount-wrap"><input type="number" value="${data.amount||''}" placeholder="0" min="0" max="99999999999" step="1" style="text-align:right;width:100%;"><span class="yen">円</span></div></td><td><textarea rows="2" placeholder="故障内容・対応状況など">${data.detail||''}</textarea></td>${carryChk(carryOn)}<td>${del}</td>`;
+    const [d1] = tr.querySelectorAll('input[type="date"]');
+    if (data.date) d1.value = data.date;
   }
 
   // 引き継ぎチェックで行色変更
@@ -2876,15 +2885,6 @@ function addRow(tableId, data={}) {
   }
 
   body.appendChild(tr);
-
-  // Safari対策：date inputにdataがない場合、DOMに追加後に明示的に空文字をセット
-  // （Safariはvalue=""でも当日日付を補完することがあるため）
-  tr.querySelectorAll('input[type="date"]').forEach(el => {
-    if (!el.getAttribute('value')) {
-      el.value = '';
-      el.defaultValue = '';
-    }
-  });
 }
 
 // ===== 全セクション一括保存 =====
@@ -4201,7 +4201,7 @@ function addActionRow(data = {}) {
     <td><input type="text" value="${data.content||''}" placeholder="決定事項・対応内容"></td>
     <td><select>${facOpts}</select></td>
     <td><input type="text" value="${data.person||''}" placeholder="担当者名"></td>
-    <td><input type="date" value="${data.deadline||''}"></td>
+    <td><input type="date"></td>
     <td>
       <select class="status-sel" onchange="updateActionRowStyle(this)">
         ${statOpts}
@@ -4212,6 +4212,9 @@ function addActionRow(data = {}) {
   // 状況セレクトに色クラス
   const sel = tr.querySelector('.status-sel');
   if (sel) updateSelectStyle(sel, data.status || '未着手');
+  // Safari対策：deadline をHTMLに埋め込まずJSでセット
+  const deadlineEl = tr.querySelector('input[type="date"]');
+  if (deadlineEl && data.deadline) deadlineEl.value = data.deadline;
   body.appendChild(tr);
 }
 
@@ -4442,11 +4445,12 @@ function _applyLockUI(sectionId, lock) {
     btn.className = 'btn btn-secondary btn-sm min-unlock-btn';
     btn.style.cssText = 'font-size:11px;padding:3px 10px;border-color:#6ee7b7;color:#065f46;';
     btn.textContent = '🔓 編集完了';
+    const titleEl = header.querySelector('.min-section-title');
     btn.onclick = () => {
       clearTimeout(_lockTimeouts[sectionId]);
       _releaseLock(sectionId);
     };
-    header.appendChild(btn);
+    if (titleEl) titleEl.after(btn); else header.appendChild(btn);
   } else {
     // 他ユーザーがロック中 → 全要素をdisabledにしてバー表示
     el.classList.add('is-locked');
