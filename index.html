@@ -3015,6 +3015,14 @@ function buildFacilitySummaryHTML(f, color) {
   const ky=b.kyuka||0, ou=b.ouen_num||0, ji=b.jimu||0, te=b.teiin||0;
   const tot = Math.round((jm+jf+hm+hf+ky+ou+ji)*10)/10;
 
+  const staffParts = [];
+  staffParts.push(`常勤 <strong>${Math.round((jm+jf)*10)/10}</strong>（男${jm}／女${jf}）`);
+  staffParts.push(`非常勤 <strong>${Math.round((hm+hf)*10)/10}</strong>（男${hm}／女${hf}）`);
+  if (ky) staffParts.push(`長期休暇 ${ky}`);
+  if (ou) staffParts.push(`応援 ${ou}`);
+  if (ji) staffParts.push(`事務他 ${ji}`);
+  staffParts.push(`定員 ${te}`);
+
   const basicSection = `
   <div class="sum-section">
     <div class="sum-section-header"><span>🏥</span>基本情報・人員数</div>
@@ -3025,26 +3033,9 @@ function buildFacilitySummaryHTML(f, color) {
         <div class="sum-basic-label">報告者名</div>
         <div class="sum-basic-val">${esc(b.reporter)||'—'}</div>
       </div>
-      <div class="sum-staffing-outer">
-        <div class="sum-staffing-block">
-          <div class="sum-staffing-block-title">常勤</div>
-          <div class="sum-staffing-row"><span class="sum-staffing-label">男</span><span class="sum-staffing-val">${jm}</span></div>
-          <div class="sum-staffing-row"><span class="sum-staffing-label">女</span><span class="sum-staffing-val">${jf}</span></div>
-          <div class="sum-staffing-row"><span class="sum-staffing-label">合計</span><span class="sum-staffing-val">${Math.round((jm+jf)*10)/10}</span></div>
-          <div class="sum-staffing-block-title" style="border-top:1px solid var(--border)">非常勤</div>
-          <div class="sum-staffing-row"><span class="sum-staffing-label">男</span><span class="sum-staffing-val">${hm}</span></div>
-          <div class="sum-staffing-row"><span class="sum-staffing-label">女</span><span class="sum-staffing-val">${hf}</span></div>
-          <div class="sum-staffing-row"><span class="sum-staffing-label">合計</span><span class="sum-staffing-val">${Math.round((hm+hf)*10)/10}</span></div>
-        </div>
-        <div class="sum-staffing-block">
-          <div class="sum-staffing-block-title">その他</div>
-          <div class="sum-staffing-row"><span class="sum-staffing-label">長期休暇など</span><span class="sum-staffing-val">${ky}</span></div>
-          <div class="sum-staffing-row"><span class="sum-staffing-label">応援人員</span><span class="sum-staffing-val">${ou}</span></div>
-          <div class="sum-staffing-row"><span class="sum-staffing-label">事務職・他</span><span class="sum-staffing-val">${ji}</span></div>
-          <div class="sum-staffing-row"><span class="sum-staffing-label">定員</span><span class="sum-staffing-val">${te}</span></div>
-          <div class="sum-staffing-block-title" style="border-top:1px solid var(--border)">集計</div>
-          <div class="sum-staffing-row"><span class="sum-staffing-label" style="color:var(--accent);font-weight:700;">総合計</span><span class="sum-staffing-val total">${tot}</span></div>
-        </div>
+      <div style="display:flex;align-items:center;flex-wrap:wrap;gap:6px;padding:8px 0 4px;">
+        <span style="white-space:nowrap;font-size:13px;font-weight:700;color:var(--accent);">総合計 ${tot}</span>
+        ${staffParts.map(p=>`<span style="white-space:nowrap;font-size:12px;color:var(--text2);background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:2px 8px;">${p}</span>`).join('')}
       </div>
     </div>
   </div>`;
