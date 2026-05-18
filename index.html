@@ -3033,7 +3033,7 @@ function buildFacilitySummaryHTML(f, color) {
         <div class="sum-basic-label">報告者名</div>
         <div class="sum-basic-val">${esc(b.reporter)||'—'}</div>
       </div>
-      <div style="display:flex;align-items:center;flex-wrap:wrap;gap:6px;padding:8px 0 4px;">
+      <div style="display:flex;align-items:center;flex-wrap:wrap;gap:6px;padding:8px 14px 8px;">
         <span style="white-space:nowrap;font-size:13px;font-weight:700;color:var(--accent);">総合計 ${tot}</span>
         ${staffParts.map(p=>`<span style="white-space:nowrap;font-size:12px;color:var(--text2);background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:2px 8px;">${p}</span>`).join('')}
       </div>
