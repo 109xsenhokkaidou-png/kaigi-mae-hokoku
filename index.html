@@ -2679,7 +2679,7 @@ function renderOverview() {
   let ouenRows = '';
   let ouenCount = 0;
   facs.forEach(f => {
-    const rows = getFacilityData(f,'ouen',[]).filter(r=>r.person||r.from);
+    const rows = getFacilityData(f,'ouen',[]).filter(r=>r.person);
     if (!rows.length) return;
     rows.forEach((r,i) => {
       ouenCount++;
@@ -3079,7 +3079,7 @@ function buildFacilitySummaryHTML(f, color) {
   </div>`;
 
   // ===== 応援・研修 =====
-  const ouenRows = getFacilityData(f, 'ouen', []).filter(r => r.person||r.from);
+  const ouenRows = getFacilityData(f, 'ouen', []).filter(r => r.person);
   let ouenBody = '';
   if (ouenRows.length) {
     ouenBody = `<div style="overflow-x:auto;padding:0 14px 12px;">
@@ -3702,7 +3702,7 @@ async function exportOverviewPDF() {
     let ouenRows2 = '';
     let ouenCnt = 0;
     facs.forEach(f => {
-      const rows = getFacilityData(f,'ouen',[]).filter(r=>r.person||r.from);
+      const rows = getFacilityData(f,'ouen',[]).filter(r=>r.person);
       rows.forEach((r,i) => {
         ouenCnt++;
         const period = [r.date_from||'', r.date_to?'～'+r.date_to:''].filter(Boolean).join('');
