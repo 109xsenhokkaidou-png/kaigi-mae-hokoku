@@ -3023,6 +3023,20 @@ function buildFacilitySummaryHTML(f, color) {
   if (ji) staffParts.push(`事務他 ${ji}`);
   staffParts.push(`定員 ${te}`);
 
+  // 充足率バー
+  const sokRate = te > 0 ? Math.round(tot / te * 100) : null;
+  const barColor = sokRate === null ? '' : sokRate > 100 ? '#378add' : sokRate === 100 ? '#1d9e75' : '#e24b4a';
+  const pctColor = sokRate === null ? '' : sokRate > 100 ? '#185fa5' : sokRate === 100 ? '#0f6e56' : '#a32d2d';
+  const barWidth  = sokRate === null ? 0 : Math.min(sokRate, 100);
+  const barHtml = sokRate === null ? '' : `
+    <span style="display:inline-flex;align-items:center;gap:5px;white-space:nowrap;">
+      <span style="font-size:11px;color:var(--text2);">充足率</span>
+      <span style="display:inline-block;width:90px;height:10px;background:var(--surface2);border-radius:5px;overflow:hidden;flex-shrink:0;">
+        <span style="display:block;height:100%;width:${barWidth}%;background:${barColor};border-radius:5px;"></span>
+      </span>
+      <span style="font-size:11px;font-weight:500;color:${pctColor};">${sokRate}%</span>
+    </span>`;
+
   const basicSection = `
   <div class="sum-section">
     <div class="sum-section-header"><span>🏥</span>基本情報・人員数</div>
@@ -3036,6 +3050,7 @@ function buildFacilitySummaryHTML(f, color) {
       <div style="display:flex;align-items:center;flex-wrap:wrap;gap:6px;padding:8px 14px 8px;">
         <span style="white-space:nowrap;font-size:13px;font-weight:700;color:var(--accent);">総合計 ${tot}</span>
         ${staffParts.map(p=>`<span style="white-space:nowrap;font-size:12px;color:var(--text2);background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:2px 8px;">${p}</span>`).join('')}
+        ${barHtml}
       </div>
     </div>
   </div>`;
