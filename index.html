@@ -2600,17 +2600,18 @@ function renderOverview() {
     const tot=jm+jf+hm+hf+ky+ou+ji;
     T.jm+=jm;T.jf+=jf;T.hm+=hm;T.hf+=hf;T.ky+=ky;T.ou+=ou;T.ji+=ji;T.tot+=tot;T.te+=te;
     const color = getFacilityColor(f);
+    const fmtNum = v => parseFloat(v.toFixed(1));
     const parts = [];
     parts.push(`常勤 <strong>${jm+jf}</strong>（男${jm}／女${jf}）`);
     parts.push(`非常勤 <strong>${hm+hf}</strong>（男${hm}／女${hf}）`);
-    if (ky) parts.push(`長期休暇 ${ky}`);
-    if (ou) parts.push(`応援 ${ou}`);
-    if (ji) parts.push(`事務他 ${ji}`);
-    parts.push(`定員 ${te}`);
+    if (ky) parts.push(`長期休暇 ${fmtNum(ky)}`);
+    if (ou) parts.push(`応援 ${fmtNum(ou)}`);
+    if (ji) parts.push(`事務他 ${fmtNum(ji)}`);
+    parts.push(`定員 ${fmtNum(te)}`);
     jinzaiHtml += `<tr style="border-bottom:1px solid var(--border);">
       <td style="padding:8px 8px 8px 16px;white-space:nowrap;"><span class="facility-tag" style="background:${color};">${f}</span></td>
       <td style="padding:8px;white-space:nowrap;font-size:11px;color:var(--text3);">${b.reporter||''}</td>
-      <td style="padding:8px;white-space:nowrap;font-size:13px;font-weight:700;color:var(--accent);">総合計 ${tot}</td>
+      <td style="padding:8px;white-space:nowrap;font-size:13px;font-weight:700;color:var(--accent);">総合計 ${fmtNum(tot)}</td>
       <td style="padding:8px 16px 8px 8px;font-size:12px;color:var(--text2);">${parts.map(p=>`<span style="white-space:nowrap;margin-right:10px;">${p}</span>`).join('')}</td>
     </tr>`;
   });
@@ -2634,14 +2635,14 @@ function renderOverview() {
             <tr style="background:var(--accent-light);border-top:1px solid #c5ddef;">
               <td style="padding:8px 8px 8px 16px;white-space:nowrap;font-size:11px;font-weight:700;color:var(--accent);">合　計</td>
               <td></td>
-              <td style="padding:8px;white-space:nowrap;font-size:13px;font-weight:700;color:var(--accent);">総合計 ${T.tot}</td>
+              <td style="padding:8px;white-space:nowrap;font-size:13px;font-weight:700;color:var(--accent);">総合計 ${parseFloat(T.tot.toFixed(1))}</td>
               <td style="padding:8px 16px 8px 8px;font-size:12px;color:var(--text2);">
                 <span style="white-space:nowrap;margin-right:10px;">常勤 <strong>${T.jm+T.jf}</strong>（男${T.jm}／女${T.jf}）</span>
                 <span style="white-space:nowrap;margin-right:10px;">非常勤 <strong>${T.hm+T.hf}</strong>（男${T.hm}／女${T.hf}）</span>
-                <span style="white-space:nowrap;margin-right:10px;">長期休暇 ${T.ky}</span>
-                <span style="white-space:nowrap;margin-right:10px;">応援 ${T.ou}</span>
-                <span style="white-space:nowrap;margin-right:10px;">事務他 ${T.ji}</span>
-                <span style="white-space:nowrap;">定員 ${T.te}</span>
+                <span style="white-space:nowrap;margin-right:10px;">長期休暇 ${parseFloat(T.ky.toFixed(1))}</span>
+                <span style="white-space:nowrap;margin-right:10px;">応援 ${parseFloat(T.ou.toFixed(1))}</span>
+                <span style="white-space:nowrap;margin-right:10px;">事務他 ${parseFloat(T.ji.toFixed(1))}</span>
+                <span style="white-space:nowrap;">定員 ${parseFloat(T.te.toFixed(1))}</span>
               </td>
             </tr>
           </tfoot>
@@ -3018,10 +3019,11 @@ function buildFacilitySummaryHTML(f, color) {
   const staffParts = [];
   staffParts.push(`常勤 <strong>${Math.round((jm+jf)*10)/10}</strong>（男${jm}／女${jf}）`);
   staffParts.push(`非常勤 <strong>${Math.round((hm+hf)*10)/10}</strong>（男${hm}／女${hf}）`);
-  if (ky) staffParts.push(`長期休暇 ${ky}`);
-  if (ou) staffParts.push(`応援 ${ou}`);
-  if (ji) staffParts.push(`事務他 ${ji}`);
-  staffParts.push(`定員 ${te}`);
+  const _sfmt = v => parseFloat(v.toFixed(1));
+  if (ky) staffParts.push(`長期休暇 ${_sfmt(ky)}`);
+  if (ou) staffParts.push(`応援 ${_sfmt(ou)}`);
+  if (ji) staffParts.push(`事務他 ${_sfmt(ji)}`);
+  staffParts.push(`定員 ${_sfmt(te)}`);
 
   // 充足率バー
   const sokRate = te > 0 ? Math.round(tot / te * 100) : null;
@@ -3631,28 +3633,29 @@ async function exportOverviewPDF() {
       const ky=b.kyuka||0, ou=b.ouen_num||0, ji=b.jimu||0, te=b.teiin||0;
       const tot=jm+jf+hm+hf+ky+ou+ji;
       T.jm+=jm;T.jf+=jf;T.hm+=hm;T.hf+=hf;T.ky+=ky;T.ou+=ou;T.ji+=ji;T.tot+=tot;T.te+=te;
+      const _fmt = v => parseFloat(v.toFixed(1));
       const parts = [
         `常勤 <b>${jm+jf}</b>（男${jm}／女${jf}）`,
         `&nbsp;非常勤 <b>${hm+hf}</b>（男${hm}／女${hf}）`,
-        ky?`&nbsp;長期休暇 ${ky}`:'',
-        ou?`&nbsp;応援 ${ou}`:'',
-        ji?`&nbsp;事務他 ${ji}`:'',
-        `&nbsp;定員 ${te}`,
+        ky?`&nbsp;長期休暇 ${_fmt(ky)}`:'',
+        ou?`&nbsp;応援 ${_fmt(ou)}`:'',
+        ji?`&nbsp;事務他 ${_fmt(ji)}`:'',
+        `&nbsp;定員 ${_fmt(te)}`,
       ].filter(Boolean).join('');
       jinzaiRows += `<tr>
         <td style="${S.td}">${tag(f)}</td>
         <td style="${S.td}">${b.reporter||''}</td>
-        <td style="${S.td}font-weight:700;color:#1a4f72;">総合計 ${tot}</td>
+        <td style="${S.td}font-weight:700;color:#1a4f72;">総合計 ${_fmt(tot)}</td>
         <td style="${S.tdW}">${parts}</td>
       </tr>`;
     });
     const footParts = [
       `常勤 <b>${T.jm+T.jf}</b>（男${T.jm}／女${T.jf}）`,
       `&nbsp;非常勤 <b>${T.hm+T.hf}</b>（男${T.hm}／女${T.hf}）`,
-      T.ky?`&nbsp;長期休暇 ${T.ky}`:'',
-      T.ou?`&nbsp;応援 ${T.ou}`:'',
-      T.ji?`&nbsp;事務他 ${T.ji}`:'',
-      `&nbsp;定員 ${T.te}`,
+      T.ky?`&nbsp;長期休暇 ${parseFloat(T.ky.toFixed(1))}`:'',
+      T.ou?`&nbsp;応援 ${parseFloat(T.ou.toFixed(1))}`:'',
+      T.ji?`&nbsp;事務他 ${parseFloat(T.ji.toFixed(1))}`:'',
+      `&nbsp;定員 ${parseFloat(T.te.toFixed(1))}`,
     ].filter(Boolean).join('');
 
     const jinzaiSec = `<div style="${S.sec}">
@@ -3667,7 +3670,7 @@ async function exportOverviewPDF() {
         <tbody>${jinzaiRows}</tbody>
         <tfoot><tr style="${S.foot}">
           <td style="${S.footTd}">合　計</td><td style="${S.footTd}"></td>
-          <td style="${S.footTd}">総合計 ${T.tot}</td>
+          <td style="${S.footTd}">総合計 ${parseFloat(T.tot.toFixed(1))}</td>
           <td style="${S.footTd}font-weight:400;">${footParts}</td>
         </tr></tfoot>
       </table></div>`;
