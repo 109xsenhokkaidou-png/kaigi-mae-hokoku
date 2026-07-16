@@ -1175,7 +1175,7 @@ select {
 .target-tab.active { background: var(--accent); color: #fff; border-color: var(--accent); }
 .q-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 130px));
+  grid-template-columns: repeat(4, minmax(0, 180px));
   gap: 6px;
   margin-bottom: 8px;
   justify-content: start;
@@ -1183,7 +1183,7 @@ select {
 .q-card {
   background: var(--surface2);
   border-radius: 6px;
-  padding: 5px 8px;
+  padding: 7px 10px;
   text-align: center;
   border: 1px solid var(--border);
 }
@@ -3311,7 +3311,7 @@ function buildQuarterlyCards(f, color) {
         }).join('');
         return `<div style="margin-bottom:10px;">
           <div style="font-size:13px;font-weight:700;color:var(--text3);letter-spacing:.04em;margin-bottom:4px;padding:0 2px;">${e.label}</div>
-          <div class="q-grid" style="grid-template-columns:repeat(3,minmax(0,130px));">${monthCards}</div>
+          <div class="q-grid" style="grid-template-columns:repeat(3,minmax(0,180px));">${monthCards}</div>
         </div>`;
       }).join('');
       qgridHtml = `<div style="padding:6px 14px 2px;">${qGridEntries}</div>`;
