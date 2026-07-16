@@ -1175,20 +1175,21 @@ select {
 .target-tab.active { background: var(--accent); color: #fff; border-color: var(--accent); }
 .q-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 8px;
-  margin-bottom: 14px;
+  grid-template-columns: repeat(4, minmax(0, 130px));
+  gap: 6px;
+  margin-bottom: 8px;
+  justify-content: start;
 }
 .q-card {
   background: var(--surface2);
   border-radius: 6px;
-  padding: 9px 10px;
+  padding: 5px 8px;
   text-align: center;
   border: 1px solid var(--border);
 }
-.q-card .q-label { font-size: 10px; font-weight: 700; color: var(--text3); margin-bottom: 4px; }
-.q-card .q-val   { font-size: 17px; font-weight: 700; color: var(--text); }
-.q-card .q-sub   { font-size: 10px; color: var(--text3); margin-top: 3px; }
+.q-card .q-label { font-size: 10px; font-weight: 700; color: var(--text3); margin-bottom: 3px; }
+.q-card .q-val   { font-size: 15px; font-weight: 700; color: var(--text); }
+.q-card .q-sub   { font-size: 10px; color: var(--text3); margin-top: 2px; }
 .q-card .q-rate  { font-weight: 700; }
 .q-rate.ok   { color: var(--green); }
 .q-rate.warn { color: var(--amber); }
@@ -3280,12 +3281,12 @@ function buildQuarterlyCards(f, color) {
             <div class="q-sub">前年比　<span class="q-rate ${yc2}">${qs.yoy!==null?pct(qs.yoy):'—'}</span></div>
           </div>`;
         }).join('');
-        return `<div style="margin-bottom:10px;">
-          <div style="font-size:11px;font-weight:700;color:var(--text3);letter-spacing:.04em;margin-bottom:6px;padding:0 2px;">${e.label}</div>
+        return `<div style="margin-bottom:6px;">
+          <div style="font-size:13px;font-weight:700;color:var(--text3);letter-spacing:.04em;margin-bottom:4px;padding:0 2px;">${e.label}</div>
           <div class="q-grid">${qCards}</div>
         </div>`;
       }).join('');
-      qgridHtml = `<div style="padding:12px 14px 4px;">${qGridEntries}</div>`;
+      qgridHtml = `<div style="padding:6px 14px 2px;">${qGridEntries}</div>`;
     } else {
       // 四半期タブ：その期間の各月のq-cardを表示
       const monthLabels = { '1Q':['4月','5月','6月'], '2Q':['7月','8月','9月'], '3Q':['10月','11月','12月'], '4Q':['1月','2月','3月'] };
@@ -3309,11 +3310,11 @@ function buildQuarterlyCards(f, color) {
           </div>`;
         }).join('');
         return `<div style="margin-bottom:10px;">
-          <div style="font-size:11px;font-weight:700;color:var(--text3);letter-spacing:.04em;margin-bottom:6px;padding:0 2px;">${e.label}</div>
-          <div class="q-grid" style="grid-template-columns:repeat(3,1fr);">${monthCards}</div>
+          <div style="font-size:13px;font-weight:700;color:var(--text3);letter-spacing:.04em;margin-bottom:4px;padding:0 2px;">${e.label}</div>
+          <div class="q-grid" style="grid-template-columns:repeat(3,minmax(0,130px));">${monthCards}</div>
         </div>`;
       }).join('');
-      qgridHtml = `<div style="padding:12px 14px 4px;">${qGridEntries}</div>`;
+      qgridHtml = `<div style="padding:6px 14px 2px;">${qGridEntries}</div>`;
     }
 
     periodsHtml += `
