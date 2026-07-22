@@ -2604,7 +2604,7 @@ function renderOverview() {
     const fmtNum = v => parseFloat(v.toFixed(1));
     const parts = [];
     parts.push(`常勤 <strong>${jm+jf}</strong>（男${jm}／女${jf}）`);
-    parts.push(`非常勤 <strong>${hm+hf}</strong>（男${hm}／女${hf}）`);
+    parts.push(`非常勤 <strong>${parseFloat((hm+hf).toFixed(2))}</strong>（男${parseFloat(hm.toFixed(2))}／女${parseFloat(hf.toFixed(2))}）`);
     if (ky) parts.push(`長期休暇 ${fmtNum(ky)}`);
     if (ou) parts.push(`応援 ${fmtNum(ou)}`);
     if (ji) parts.push(`事務他 ${fmtNum(ji)}`);
@@ -2639,7 +2639,7 @@ function renderOverview() {
               <td style="padding:8px;white-space:nowrap;font-size:13px;font-weight:700;color:var(--accent);">総合計 ${parseFloat(T.tot.toFixed(1))}</td>
               <td style="padding:8px 16px 8px 8px;font-size:12px;color:var(--text2);">
                 <span style="white-space:nowrap;margin-right:10px;">常勤 <strong>${T.jm+T.jf}</strong>（男${T.jm}／女${T.jf}）</span>
-                <span style="white-space:nowrap;margin-right:10px;">非常勤 <strong>${parseFloat((T.hm+T.hf).toFixed(1))}</strong>（男${parseFloat(T.hm.toFixed(1))}／女${parseFloat(T.hf.toFixed(1))}）</span>
+                <span style="white-space:nowrap;margin-right:10px;">非常勤 <strong>${parseFloat((T.hm+T.hf).toFixed(2))}</strong>（男${parseFloat(T.hm.toFixed(2))}／女${parseFloat(T.hf.toFixed(2))}）</span>
                 <span style="white-space:nowrap;margin-right:10px;">長期休暇 ${parseFloat(T.ky.toFixed(1))}</span>
                 <span style="white-space:nowrap;margin-right:10px;">応援 ${parseFloat(T.ou.toFixed(1))}</span>
                 <span style="white-space:nowrap;margin-right:10px;">事務他 ${parseFloat(T.ji.toFixed(1))}</span>
@@ -3637,7 +3637,7 @@ async function exportOverviewPDF() {
       const _fmt = v => parseFloat(v.toFixed(1));
       const parts = [
         `常勤 <b>${jm+jf}</b>（男${jm}／女${jf}）`,
-        `&nbsp;非常勤 <b>${hm+hf}</b>（男${hm}／女${hf}）`,
+        `&nbsp;非常勤 <b>${parseFloat((hm+hf).toFixed(2))}</b>（男${parseFloat(hm.toFixed(2))}／女${parseFloat(hf.toFixed(2))}）`,
         ky?`&nbsp;長期休暇 ${_fmt(ky)}`:'',
         ou?`&nbsp;応援 ${_fmt(ou)}`:'',
         ji?`&nbsp;事務他 ${_fmt(ji)}`:'',
@@ -3652,7 +3652,7 @@ async function exportOverviewPDF() {
     });
     const footParts = [
       `常勤 <b>${T.jm+T.jf}</b>（男${T.jm}／女${T.jf}）`,
-      `&nbsp;非常勤 <b>${parseFloat((T.hm+T.hf).toFixed(1))}</b>（男${parseFloat(T.hm.toFixed(1))}／女${parseFloat(T.hf.toFixed(1))}）`,
+      `&nbsp;非常勤 <b>${parseFloat((T.hm+T.hf).toFixed(2))}</b>（男${parseFloat(T.hm.toFixed(2))}／女${parseFloat(T.hf.toFixed(2))}）`,
       T.ky?`&nbsp;長期休暇 ${parseFloat(T.ky.toFixed(1))}`:'',
       T.ou?`&nbsp;応援 ${parseFloat(T.ou.toFixed(1))}`:'',
       T.ji?`&nbsp;事務他 ${parseFloat(T.ji.toFixed(1))}`:'',
