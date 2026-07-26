@@ -2198,6 +2198,10 @@ tr.action-保留 td { background:#fff5f5 !important; }
             <div id="opts-ouen-type"></div>
           </div>
           <div class="dropdown-panel">
+            <div class="dropdown-panel-title">【応援・研修】施設</div>
+            <div id="opts-ouen-from"></div>
+          </div>
+          <div class="dropdown-panel">
             <div class="dropdown-panel-title">【装置導入】装置</div>
             <div id="opts-souchi-type"></div>
           </div>
@@ -2281,6 +2285,7 @@ const DEFAULT_FACILITIES = ['札幌東','札幌','共愛会','日高','帯広','
 const DEFAULT_OPTS = {
   'jinji-type':     { free: false, items: ['採用','退職','異動','昇格','降格','産休','育休','復職','その他'] },
   'ouen-type':      { free: false, items: ['応援派遣','応援受入','研修派遣','研修受入'] },
+  'ouen-from':      { free: false, items: ['札幌東','札幌','共愛会','日高','帯広','札幌南','札幌もいわ','真駒内病院','五輪橋クリニック','五輪橋マタニティクリニック'] },
   'souchi-type':    { free: false, items: ['CT','MRI','X線','US（超音波）','RI（核医学）','その他'] },
   'souchi-fail-type':{ free: false, items: ['CT','MRI','X線','US（超音波）','RI（核医学）','その他'] },
 };
@@ -2845,9 +2850,9 @@ function addRow(tableId, data={}) {
     tr.innerHTML = `<td>${ctrl}</td><td><input type="date" value="${data.date||''}"></td><td><input type="text" value="${data.name||''}" placeholder="氏名"></td><td><input type="text" value="${data.note||''}" placeholder="備考"></td>${carryChk(carryOn)}<td>${del}</td>`;
 
   } else if (tableId === 'ouen-table') {
-    const facs = getFacilities();
-    const facOpts  = facs.map(f=>`<option${data.from===f?' selected':''}>${f}</option>`).join('');
-    const facOpts2 = facs.map(f=>`<option${data.to===f?' selected':''}>${f}</option>`).join('');
+    const ouenFacs = getOpts('ouen-from').items;
+    const facOpts  = ouenFacs.map(f=>`<option${data.from===f?' selected':''}>${f}</option>`).join('');
+    const facOpts2 = ouenFacs.map(f=>`<option${data.to===f?' selected':''}>${f}</option>`).join('');
     const ouenOpts = getOpts('ouen-type');
     const typeCtrl = ouenOpts.free
       ? `<input type="text" value="${data.type||''}" placeholder="分類">`
@@ -3465,6 +3470,7 @@ function renderDropdownSettings() {
   [
     { key:'jinji-type',       elId:'opts-jinji-type' },
     { key:'ouen-type',        elId:'opts-ouen-type'  },
+    { key:'ouen-from',        elId:'opts-ouen-from'  },
     { key:'souchi-type',      elId:'opts-souchi-type'},
     { key:'souchi-fail-type', elId:'opts-souchi-fail-type'},
   ].forEach(({key, elId}) => {
