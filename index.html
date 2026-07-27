@@ -371,6 +371,18 @@ select {
 .btn-success { background: var(--green); color: #fff; }
 .btn-success:hover { opacity: 0.9; }
 .btn-sm { padding: 3px 8px; font-size: 11px; }
+.btn-move {
+  background: var(--surface);
+  color: var(--text2);
+  border: 1px solid var(--border2);
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-size: 10px;
+  cursor: pointer;
+  line-height: 1.4;
+}
+.btn-move:hover { background: var(--bg); color: var(--text); }
+.move-td { padding: 4px 2px !important; }
 
 .btn-group {
   display: flex;
@@ -1714,6 +1726,7 @@ tr.action-保留 td { background:#fff5f5 !important; }
               <th style="width:110px;">日付</th>
               <th style="width:140px;">氏名</th>
               <th>備考</th>
+              <th style="width:50px;">順</th>
               <th class="carry-th">引継</th>
               <th style="width:36px;"></th>
             </tr></thead>
@@ -1739,6 +1752,7 @@ tr.action-保留 td { background:#fff5f5 !important; }
               <th style="width:105px;">終了日</th>
               <th style="width:110px;">派遣者・研修者</th>
               <th>備考</th>
+              <th style="width:50px;">順</th>
               <th class="carry-th">引継</th>
               <th style="width:36px;"></th>
             </tr></thead>
@@ -1760,6 +1774,7 @@ tr.action-保留 td { background:#fff5f5 !important; }
               <th style="width:120px;">メーカー</th>
               <th style="width:140px;">装置名</th>
               <th>詳細</th>
+              <th style="width:50px;">順</th>
               <th class="carry-th">引継</th>
               <th style="width:36px;"></th>
             </tr></thead>
@@ -1784,6 +1799,7 @@ tr.action-保留 td { background:#fff5f5 !important; }
               <th style="width:60px;">保守</th>
               <th style="width:130px;">金額</th>
               <th>詳細</th>
+              <th style="width:50px;">順</th>
               <th class="carry-th">引継</th>
               <th style="width:36px;"></th>
             </tr></thead>
@@ -2839,6 +2855,10 @@ function addRow(tableId, data={}) {
   const body = document.getElementById(bodyId);
   const tr = document.createElement('tr');
   const del = `<button class="btn btn-danger btn-sm" onclick="this.closest('tr').remove()">✕</button>`;
+  const moveBtns = `<td class="move-td" style="white-space:nowrap;text-align:center;">
+    <button type="button" class="btn-move" title="上へ" onclick="moveRow(this,-1)">▲</button>
+    <button type="button" class="btn-move" title="下へ" onclick="moveRow(this,1)">▼</button>
+  </td>`;
   const carryChk = (checked) => `<td class="carry-td"><input type="checkbox" class="carry-cb" title="次回会議へ引き継ぐ"${checked?' checked':''}></td>`;
   const carryOn = data.carry === true;
 
@@ -2847,7 +2867,7 @@ function addRow(tableId, data={}) {
     const ctrl = opts.free
       ? `<input type="text" value="${data.type||''}" placeholder="分類">`
       : `<select>${opts.items.map(t=>`<option${data.type===t?' selected':''}>${t}</option>`).join('')}</select>`;
-    tr.innerHTML = `<td>${ctrl}</td><td><input type="date" value="${data.date||''}"></td><td><input type="text" value="${data.name||''}" placeholder="氏名"></td><td><input type="text" value="${data.note||''}" placeholder="備考"></td>${carryChk(carryOn)}<td>${del}</td>`;
+    tr.innerHTML = `<td>${ctrl}</td><td><input type="date" value="${data.date||''}"></td><td><input type="text" value="${data.name||''}" placeholder="氏名"></td><td><input type="text" value="${data.note||''}" placeholder="備考"></td>${moveBtns}${carryChk(carryOn)}<td>${del}</td>`;
 
   } else if (tableId === 'ouen-table') {
     const ouenFacs = getOpts('ouen-from').items;
@@ -2857,14 +2877,14 @@ function addRow(tableId, data={}) {
     const typeCtrl = ouenOpts.free
       ? `<input type="text" value="${data.type||''}" placeholder="分類">`
       : `<select>${ouenOpts.items.map(t=>`<option${data.type===t?' selected':''}>${t}</option>`).join('')}</select>`;
-    tr.innerHTML = `<td><select>${facOpts}</select></td><td class="center">→</td><td><select>${facOpts2}</select></td><td>${typeCtrl}</td><td><input type="date" value="${data.date_from||''}"></td><td><input type="date" value="${data.date_to||''}"></td><td><input type="text" value="${data.person||''}" placeholder="氏名"></td><td><input type="text" value="${data.note||''}" placeholder="備考"></td>${carryChk(carryOn)}<td>${del}</td>`;
+    tr.innerHTML = `<td><select>${facOpts}</select></td><td class="center">→</td><td><select>${facOpts2}</select></td><td>${typeCtrl}</td><td><input type="date" value="${data.date_from||''}"></td><td><input type="date" value="${data.date_to||''}"></td><td><input type="text" value="${data.person||''}" placeholder="氏名"></td><td><input type="text" value="${data.note||''}" placeholder="備考"></td>${moveBtns}${carryChk(carryOn)}<td>${del}</td>`;
 
   } else if (tableId === 'souchi-new-table') {
     const souchiOpts = getOpts('souchi-type');
     const souchiCtrl = souchiOpts.free
       ? `<input type="text" value="${data.souchi||''}" placeholder="装置">`
       : `<select>${souchiOpts.items.map(t=>`<option${data.souchi===t?' selected':''}>${t}</option>`).join('')}</select>`;
-    tr.innerHTML = `<td>${souchiCtrl}</td><td><input type="text" value="${data.maker||''}" placeholder="メーカー名"></td><td><input type="text" value="${data.name||''}" placeholder="装置名"></td><td><textarea rows="2" placeholder="詳細・導入予定時期など">${data.detail||''}</textarea></td>${carryChk(carryOn)}<td>${del}</td>`;
+    tr.innerHTML = `<td>${souchiCtrl}</td><td><input type="text" value="${data.maker||''}" placeholder="メーカー名"></td><td><input type="text" value="${data.name||''}" placeholder="装置名"></td><td><textarea rows="2" placeholder="詳細・導入予定時期など">${data.detail||''}</textarea></td>${moveBtns}${carryChk(carryOn)}<td>${del}</td>`;
 
   } else if (tableId === 'souchi-fail-table') {
     const sfOpts = getOpts('souchi-fail-type');
@@ -2872,7 +2892,7 @@ function addRow(tableId, data={}) {
       ? `<input type="text" value="${data.device||''}" placeholder="CT・MRI等">`
       : `<select>${sfOpts.items.map(t=>`<option${data.device===t?' selected':''}>${t}</option>`).join('')}</select>`;
     const hoshuSel = `<select><option${data.hoshu==='有'?' selected':''}>有</option><option${data.hoshu==='無'?' selected':''}>無</option></select>`;
-    tr.innerHTML = `<td><input type="date" value="${data.date||''}"></td><td>${deviceCtrl}</td><td><input type="text" value="${data.maker||''}" placeholder="メーカー名"></td><td><input type="text" value="${data.name||''}" placeholder="装置名・型番"></td><td>${hoshuSel}</td><td><div class="amount-wrap"><input type="number" value="${data.amount||''}" placeholder="0" min="0" max="99999999999" step="1" style="text-align:right;width:100%;"><span class="yen">円</span></div></td><td><textarea rows="2" placeholder="故障内容・対応状況など">${data.detail||''}</textarea></td>${carryChk(carryOn)}<td>${del}</td>`;
+    tr.innerHTML = `<td><input type="date" value="${data.date||''}"></td><td>${deviceCtrl}</td><td><input type="text" value="${data.maker||''}" placeholder="メーカー名"></td><td><input type="text" value="${data.name||''}" placeholder="装置名・型番"></td><td>${hoshuSel}</td><td><div class="amount-wrap"><input type="number" value="${data.amount||''}" placeholder="0" min="0" max="99999999999" step="1" style="text-align:right;width:100%;"><span class="yen">円</span></div></td><td><textarea rows="2" placeholder="故障内容・対応状況など">${data.detail||''}</textarea></td>${moveBtns}${carryChk(carryOn)}<td>${del}</td>`;
   }
 
   // 引き継ぎチェックで行色変更
@@ -2892,6 +2912,18 @@ function addRow(tableId, data={}) {
       el.defaultValue = '';
     }
   });
+}
+
+// ===== 行の並び替え（上下ボタン） =====
+function moveRow(btn, dir) {
+  const tr = btn.closest('tr');
+  if (dir < 0) {
+    const prev = tr.previousElementSibling;
+    if (prev) tr.parentNode.insertBefore(tr, prev);
+  } else {
+    const next = tr.nextElementSibling;
+    if (next) tr.parentNode.insertBefore(next, tr);
+  }
 }
 
 // ===== 全セクション一括保存 =====
