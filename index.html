@@ -5639,14 +5639,17 @@ function renderTgtDetailSection(td) {
 function renderTgtMetrics(td) {
   const rClass = r => r === null ? '' : r >= 1 ? 'tval-ok' : r >= 0.9 ? 'tval-warn' : 'tval-bad';
   const calcCard = (exData) => {
-    const t = exData.target.reduce((a,v) => a+(v||0), 0);
-    const a = exData.actual.reduce((a,v) => a+(v||0), 0);
+    const target   = exData.target   || [];
+    const actual   = exData.actual   || [];
+    const prevYear = exData.prevYear || [];
+    const t = target.reduce((a,v) => a+(v||0), 0);
+    const a = actual.reduce((a,v) => a+(v||0), 0);
     const r = t > 0 ? a / t : null;
-    const cumPrev = (exData.prevYear||[]).reduce((s,v,i) => s + (exData.actual[i] > 0 ? (v||0) : 0), 0);
+    const cumPrev = prevYear.reduce((s,v,i) => s + (actual[i] > 0 ? (v||0) : 0), 0);
     const yoy = cumPrev > 0 ? a / cumPrev : null;
     return {t, a, r, yoy};
   };
-  const activeExams = TGT_EXAM_TYPES.filter(et => td.exams[et.key].hasData);
+  const activeExams = TGT_EXAM_TYPES.filter(et => td.exams[et.key] && td.exams[et.key].hasData);
   const makeCard = (key, label, stats) => {
     const isActive = (tgtGraphExamKey === key);
     return `<div class="target-mcard${isActive ? ' active-card' : ''}" data-key="${key}"
@@ -5664,12 +5667,15 @@ function renderTgtMetrics(td) {
 }
 
 function renderTgtQGridData(data, isOutpatient) {
+  const target   = data.target   || Array(12).fill(null);
+  const actual   = data.actual   || Array(12).fill(null);
+  const prevYear = data.prevYear || Array(12).fill(null);
   const rateClass = r => r === null ? '' : r >= 1 ? 'ok' : r >= 0.9 ? 'warn' : 'bad';
   document.getElementById('graph-q-grid').innerHTML = TGT_QUARTERS.map(q => {
-    const tSum  = q.cols.reduce((a,c) => a+(data.target[c]||0), 0);
-    const aSum  = q.cols.reduce((a,c) => a+(data.actual[c]||0), 0);
-    const pSum  = q.cols.reduce((a,c) => a + (data.actual[c] > 0 ? (data.prevYear[c]||0) : 0), 0);
-    const hasD  = q.cols.some(c => data.actual[c] > 0);
+    const tSum  = q.cols.reduce((a,c) => a+(target[c]||0), 0);
+    const aSum  = q.cols.reduce((a,c) => a+(actual[c]||0), 0);
+    const pSum  = q.cols.reduce((a,c) => a + (actual[c] > 0 ? (prevYear[c]||0) : 0), 0);
+    const hasD  = q.cols.some(c => actual[c] > 0);
     const rate  = tSum > 0 && hasD ? aSum/tSum : null;
     const yoy   = pSum > 0 && hasD ? aSum/pSum : null;
     return `<div class="q-card">
@@ -5688,8 +5694,11 @@ function renderTgtChartData(data, isOutpatient) {
   if (tgtChart) { tgtChart.destroy(); tgtChart = null; }
   const ctx = document.getElementById('target-chart');
   if (!ctx) return;
-  const mavg = data.actual.map((_, i) => {
-    const sl = data.actual.slice(0, i+1).filter(v => v !== null && v > 0);
+  const target   = data.target   || Array(12).fill(null);
+  const actual   = data.actual   || Array(12).fill(null);
+  const prevYear = data.prevYear || Array(12).fill(null);
+  const mavg = actual.map((_, i) => {
+    const sl = actual.slice(0, i+1).filter(v => v !== null && v > 0);
     return sl.length ? Math.round(sl.reduce((a,b) => a+b, 0) / sl.length) : null;
   });
   const barColor    = isOutpatient ? 'rgba(42,107,58,.72)'  : 'rgba(26,79,114,.75)';
@@ -5699,9 +5708,9 @@ function renderTgtChartData(data, isOutpatient) {
   tgtChart = new Chart(ctx, {
     type: 'bar',
     data: { labels: TGT_MONTHS, datasets: [
-      {label:tgtLabel,      data:data.target,   backgroundColor:'rgba(180,210,240,.5)', borderColor:'#7aaad4', borderWidth:1, order:3},
-      {label:'前年同月',    data:data.prevYear, backgroundColor:'rgba(200,200,190,.5)', borderColor:'#aaa999', borderWidth:1, order:2},
-      {label:barLabel,      data:data.actual.map(v=>v||null), backgroundColor:barColor, borderColor, borderWidth:1, order:1},
+      {label:tgtLabel,      data:target,   backgroundColor:'rgba(180,210,240,.5)', borderColor:'#7aaad4', borderWidth:1, order:3},
+      {label:'前年同月',    data:prevYear, backgroundColor:'rgba(200,200,190,.5)', borderColor:'#aaa999', borderWidth:1, order:2},
+      {label:barLabel,      data:actual.map(v=>v||null), backgroundColor:barColor, borderColor, borderWidth:1, order:1},
       {label:'年間移動平均',data:mavg, type:'line', borderColor:'#c05a5a', borderWidth:2, pointRadius:3, pointBackgroundColor:'#c05a5a', fill:false, tension:.3, order:0},
     ]},
     options: {
@@ -5729,24 +5738,27 @@ function toggleGraphBreakdown() {
 }
 
 function renderTgtMonthlyTableData(data, isOutpatient) {
+  const target   = data.target   || Array(12).fill(null);
+  const actual   = data.actual   || Array(12).fill(null);
+  const prevYear = data.prevYear || Array(12).fill(null);
   const rateClass  = r => r===null ? 'tval-empty' : r>=1 ? 'tval-ok' : r>=0.9 ? 'tval-warn' : 'tval-bad';
   const yoyClass   = r => r===null ? 'tval-empty' : r>=1 ? 'tval-ok' : r>=0.9 ? 'tval-warn' : 'tval-bad';
   const ratioClass = r => r===null ? 'tval-empty' : '';
-  const rates = data.actual.map((a,i) => (data.target[i] > 0 && a !== null) ? a/data.target[i] : null);
-  const yoys  = data.actual.map((a,i) => (data.prevYear[i] > 0 && a !== null && a > 0) ? a/data.prevYear[i] : null);
-  const cumTarget = data.target.reduce((a,v,i) => a + (data.actual[i] > 0 ? (v||0) : 0), 0);
-  const cumActual = data.actual.reduce((a,v) => a + (v||0), 0);
+  const rates = actual.map((a,i) => (target[i] > 0 && a !== null) ? a/target[i] : null);
+  const yoys  = actual.map((a,i) => (prevYear[i] > 0 && a !== null && a > 0) ? a/prevYear[i] : null);
+  const cumTarget = target.reduce((a,v,i) => a + (actual[i] > 0 ? (v||0) : 0), 0);
+  const cumActual = actual.reduce((a,v) => a + (v||0), 0);
   const cumRate   = cumTarget > 0 ? cumActual / cumTarget : null;
-  const cumPrev   = data.prevYear.reduce((a,v,i) => a + (data.actual[i] > 0 ? (v||0) : 0), 0);
+  const cumPrev   = prevYear.reduce((a,v,i) => a + (actual[i] > 0 ? (v||0) : 0), 0);
   const cumYoy    = cumPrev > 0 ? cumActual / cumPrev : null;
   const tgtLabel  = isOutpatient ? '目標患者数' : '目標件数';
   const actLabel  = isOutpatient ? '実患者数'   : '実件数';
 
   // 通常行（常時表示）
   const mainRows = [
-    {label:tgtLabel,   vals:data.target},
-    {label:'前年同月', vals:data.prevYear},
-    {label:actLabel,   vals:data.actual},
+    {label:tgtLabel,   vals:target},
+    {label:'前年同月', vals:prevYear},
+    {label:actLabel,   vals:actual},
   ];
   // 内訳行（breakdown-row / トグルで表示切替）
   let breakdownRows = [];
