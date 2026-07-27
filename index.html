@@ -2963,6 +2963,11 @@ function renderSummary() {
   document.getElementById('summary-date-label').textContent =
     (md ? `会議日：${md}　／　` : '') + `集計：${now}`;
 
+  // 再描画前にアクティブな施設タブを記憶（他端末の保存で先頭施設に戻らないようにする）
+  const prevActiveTab = document.querySelector('#summary-facility-tabs .tab.active');
+  const keepFac = prevActiveTab ? prevActiveTab.dataset.fac : null;
+  const activeFac = (keepFac && facs.includes(keepFac)) ? keepFac : facs[0];
+
   // --- 施設タブ生成 ---
   const tabsEl = document.getElementById('summary-facility-tabs');
   const contEl = document.getElementById('summary-facility-contents');
@@ -2971,19 +2976,20 @@ function renderSummary() {
 
   facs.forEach((f, idx) => {
     const color = getFacilityColor(f);
+    const isActive = f === activeFac;
     // タブ
     const tab = document.createElement('div');
-    tab.className = 'tab' + (idx === 0 ? ' active' : '');
+    tab.className = 'tab' + (isActive ? ' active' : '');
     tab.dataset.fac = f;
-    tab.style.borderBottom = idx === 0 ? `2px solid ${color}` : '';
-    tab.style.color = idx === 0 ? color : '';
+    tab.style.borderBottom = isActive ? `2px solid ${color}` : '';
+    tab.style.color = isActive ? color : '';
     tab.innerHTML = `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${color};margin-right:5px;"></span>${f}`;
     tab.onclick = () => switchSummaryFacilityTab(f);
     tabsEl.appendChild(tab);
 
     // コンテンツ
     const div = document.createElement('div');
-    div.className = 'tab-content' + (idx === 0 ? ' active' : '');
+    div.className = 'tab-content' + (isActive ? ' active' : '');
     div.id = `summary-fac-content-${CSS.escape(f)}`;
     div.innerHTML = buildFacilitySummaryHTML(f, color);
     contEl.appendChild(div);
