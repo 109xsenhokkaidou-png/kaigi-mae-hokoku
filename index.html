@@ -5331,6 +5331,12 @@ function loadArchiveFromFile(file) {
 })();
 // ===== 目標管理 定数 =====
 const TGT_MONTHS = ['4月','5月','6月','7月','8月','9月','10月','11月','12月','1月','2月','3月'];
+// Firebase RTDBは配列末尾のnullを保存時に削除し配列長が短縮されるため、
+// 月別データを扱う箇所では必ずこれで12要素に補完してから使用する。
+function padMonth(arr) {
+  const a = arr || [];
+  return Array.from({length: 12}, (_, i) => (a[i] !== undefined ? a[i] : null));
+}
 const TGT_EXAM_TYPES = [
   // rP:前年同月, rT:目標, rA:実件数, rOut:外来, rIn:入院,
   // rOutRatio:外来比率, rRate:達成率, rExecRate:外来実施率, rYoy:前年対比, rExt:外部依頼件数
@@ -5671,9 +5677,9 @@ function renderTgtDetailSection(td) {
 function renderTgtMetrics(td) {
   const rClass = r => r === null ? '' : r >= 1 ? 'tval-ok' : r >= 0.9 ? 'tval-warn' : 'tval-bad';
   const calcCard = (exData) => {
-    const target   = exData.target   || [];
-    const actual   = exData.actual   || [];
-    const prevYear = exData.prevYear || [];
+    const target   = padMonth(exData.target);
+    const actual   = padMonth(exData.actual);
+    const prevYear = padMonth(exData.prevYear);
     const t = target.reduce((a,v) => a+(v||0), 0);
     const a = actual.reduce((a,v) => a+(v||0), 0);
     const r = t > 0 ? a / t : null;
@@ -5699,9 +5705,9 @@ function renderTgtMetrics(td) {
 }
 
 function renderTgtQGridData(data, isOutpatient) {
-  const target   = data.target   || Array(12).fill(null);
-  const actual   = data.actual   || Array(12).fill(null);
-  const prevYear = data.prevYear || Array(12).fill(null);
+  const target   = padMonth(data.target);
+  const actual   = padMonth(data.actual);
+  const prevYear = padMonth(data.prevYear);
   const rateClass = r => r === null ? '' : r >= 1 ? 'ok' : r >= 0.9 ? 'warn' : 'bad';
   document.getElementById('graph-q-grid').innerHTML = TGT_QUARTERS.map(q => {
     const tSum  = q.cols.reduce((a,c) => a+(target[c]||0), 0);
@@ -5726,9 +5732,9 @@ function renderTgtChartData(data, isOutpatient) {
   if (tgtChart) { tgtChart.destroy(); tgtChart = null; }
   const ctx = document.getElementById('target-chart');
   if (!ctx) return;
-  const target   = data.target   || Array(12).fill(null);
-  const actual   = data.actual   || Array(12).fill(null);
-  const prevYear = data.prevYear || Array(12).fill(null);
+  const target   = padMonth(data.target);
+  const actual   = padMonth(data.actual);
+  const prevYear = padMonth(data.prevYear);
   const mavg = actual.map((_, i) => {
     const sl = actual.slice(0, i+1).filter(v => v !== null && v > 0);
     return sl.length ? Math.round(sl.reduce((a,b) => a+b, 0) / sl.length) : null;
@@ -5770,9 +5776,9 @@ function toggleGraphBreakdown() {
 }
 
 function renderTgtMonthlyTableData(data, isOutpatient) {
-  const target   = data.target   || Array(12).fill(null);
-  const actual   = data.actual   || Array(12).fill(null);
-  const prevYear = data.prevYear || Array(12).fill(null);
+  const target   = padMonth(data.target);
+  const actual   = padMonth(data.actual);
+  const prevYear = padMonth(data.prevYear);
   const rateClass  = r => r===null ? 'tval-empty' : r>=1 ? 'tval-ok' : r>=0.9 ? 'tval-warn' : 'tval-bad';
   const yoyClass   = r => r===null ? 'tval-empty' : r>=1 ? 'tval-ok' : r>=0.9 ? 'tval-warn' : 'tval-bad';
   const ratioClass = r => r===null ? 'tval-empty' : '';
@@ -5803,11 +5809,11 @@ function renderTgtMonthlyTableData(data, isOutpatient) {
   let hasBreakdown = false;
 
   if (!isOutpatient) {
-    const outVals   = data.outpatient || Array(12).fill(null);
-    const inVals    = data.inpatient  || Array(12).fill(null);
-    const ratioVals = data.outRatio   || Array(12).fill(null);
-    const execVals  = data.execRate   || Array(12).fill(null);
-    const extVals   = data.extReq     || Array(12).fill(null);
+    const outVals   = padMonth(data.outpatient);
+    const inVals    = padMonth(data.inpatient);
+    const ratioVals = padMonth(data.outRatio);
+    const execVals  = padMonth(data.execRate);
+    const extVals   = padMonth(data.extReq);
 
     hasBreakdown = outVals.some(v => v != null && v > 0) || inVals.some(v => v != null && v > 0);
     if (hasBreakdown) {
