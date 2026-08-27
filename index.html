@@ -4418,6 +4418,12 @@ let _lockListeners = {};       // sectionId → Firebase listener
 let _lockTimeouts = {};        // sectionId → focusout 5分タイマー
 let _lockPollTimer = null;     // 30秒ポーリングタイマー
 let _currentLocks = {};        // sectionId → { userName, lockedAt }
+const LOCK_STALE_MS = 15 * 60 * 1000; // ロックの絶対有効期限（15分）。フォーカスが外れないまま放置された場合の保険
+
+// lockedAtから15分以上経過したロックを「失効」とみなす
+function _isLockStale(lock) {
+  return !!lock && (Date.now() - lock.lockedAt > LOCK_STALE_MS);
+}
 
 // ログインユーザー名（displayName優先、なければemail前半）
 function _getLockUserName() {
@@ -4442,8 +4448,8 @@ function _acquireLock(sectionId) {
   lockRef.once('value').then(snap => {
     const lock = snap.val();
     const me = _getLockUserName();
-    // 他ユーザーがロック中なら取得しない
-    if (lock && lock.userName && lock.userName !== me) return;
+    // 他ユーザーがロック中でも、15分以上経過（失効）していれば上書き取得を許可
+    if (lock && lock.userName && lock.userName !== me && !_isLockStale(lock)) return;
     // onDisconnect: ブラウザ閉じたら自動解除
     lockRef.onDisconnect().remove();
     lockRef.set({ userName: me, lockedAt: Date.now() });
@@ -4531,10 +4537,19 @@ function _startLockListeners() {
     });
   });
 
-  // 30秒ポーリング（表示時刻の更新用）
+  // 30秒ポーリング（表示時刻の更新 ＋ 失効ロックの自動解除用）
   clearInterval(_lockPollTimer);
   _lockPollTimer = setInterval(() => {
-    LOCK_SECTIONS.forEach(sid => _applyLockUI(sid, _currentLocks[sid] || null));
+    LOCK_SECTIONS.forEach(sid => {
+      const lock = _currentLocks[sid] || null;
+      const me = _getLockUserName();
+      // 他ユーザーの失効ロックはFirebase上から削除（全端末に反映される）
+      if (lock && lock.userName !== me && _isLockStale(lock) && _locksRef) {
+        _locksRef.child(sid).remove();
+        return;
+      }
+      _applyLockUI(sid, lock);
+    });
   }, 30000);
 }
 
