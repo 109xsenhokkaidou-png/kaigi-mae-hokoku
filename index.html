@@ -4061,7 +4061,65 @@ function proceedToNextMeeting() {
 // ===== 議事録 =====
 // ストレージキー：会議日をIDとして使う
 function getMinutesKey(dateStr) { return `minutes_${(dateStr||'draft').replace(/-/g,'')}` ; }
-function loadMinutes(dateStr) { return S.get(getMinutesKey(dateStr), null); }
+
+// ===== 議事録データのセクション分割保存（v64〜）=====
+// 議事録全体を1個のFirebaseキーとして丸ごと保存すると、複数人が別々のセクションを
+// 同時に編集して保存した場合、後から保存した人が先に保存された変更を意図せず
+// 上書き消去してしまう競合が起きるため、ロック対象セクション単位でキーを分割する。
+// 'header' は日時・議長・書記・出席者など、ロック機構を持たない項目をまとめたもの。
+// 'header'以外はLOCK_SECTIONS（後方で定義）と同じ並び：notices/facreport/seminar/agenda/actions/next
+const MINUTES_PARTS = ['header','notices','facreport','seminar','agenda','actions','next'];
+
+function _splitMinutesData(data) {
+  return {
+    header: {
+      date: data.date, timeStart: data.timeStart, timeEnd: data.timeEnd,
+      method: data.method, chair: data.chair, secretary: data.secretary,
+      attendees: data.attendees, savedAt: data.savedAt,
+    },
+    notices:   { blocks: data.notices || [] },
+    facreport: { facReports: data.facReports || {} },
+    seminar:   { blocks: data.seminars || [] },
+    agenda:    { blocks: data.agendas || [] },
+    actions:   { actions: data.actions || [] },
+    next: {
+      nextDate: data.nextDate, nextTime: data.nextTime,
+      nextMethod: data.nextMethod, nextSecretary: data.nextSecretary,
+    },
+  };
+}
+
+function _mergeMinutesParts(parts) {
+  const h = parts.header || {};
+  const n = parts.next || {};
+  return {
+    date: h.date || '', timeStart: h.timeStart || '', timeEnd: h.timeEnd || '',
+    method: h.method || '', chair: h.chair || '', secretary: h.secretary || '',
+    attendees: h.attendees || [],
+    notices:    (parts.notices   || {}).blocks   || [],
+    agendas:    (parts.agenda    || {}).blocks   || [],
+    seminars:   (parts.seminar   || {}).blocks   || [],
+    actions:    (parts.actions   || {}).actions  || [],
+    facReports: (parts.facreport || {}).facReports || {},
+    nextDate: n.nextDate || '', nextTime: n.nextTime || '14:00',
+    nextMethod: n.nextMethod || '', nextSecretary: n.nextSecretary || '',
+    savedAt: h.savedAt || '',
+  };
+}
+
+function loadMinutes(dateStr) {
+  const key = getMinutesKey(dateStr);
+  const header = S.get(key + '_header', null);
+  if (!header) {
+    // 新形式のデータがまだ無い場合、v63以前の単一ブロック保存形式にフォールバック
+    return S.get(key, null);
+  }
+  const parts = { header };
+  MINUTES_PARTS.filter(p => p !== 'header').forEach(p => {
+    parts[p] = S.get(key + '_' + p, null);
+  });
+  return _mergeMinutesParts(parts);
+}
 
 // 議事録ビューを開いたときの初期化
 // 一度初期化済みならタブ切り替えで上書きしない
@@ -4418,6 +4476,7 @@ let _lockListeners = {};       // sectionId → Firebase listener
 let _lockTimeouts = {};        // sectionId → focusout 5分タイマー
 let _lockPollTimer = null;     // 30秒ポーリングタイマー
 let _currentLocks = {};        // sectionId → { userName, lockedAt }
+let _myTouchedSections = new Set(); // このセッションで自分が実際に編集（ロック取得）したセクションID
 const LOCK_STALE_MS = 15 * 60 * 1000; // ロックの絶対有効期限（15分）。フォーカスが外れないまま放置された場合の保険
 
 // lockedAtから15分以上経過したロックを「失効」とみなす
@@ -4453,6 +4512,8 @@ function _acquireLock(sectionId) {
     // onDisconnect: ブラウザ閉じたら自動解除
     lockRef.onDisconnect().remove();
     lockRef.set({ userName: me, lockedAt: Date.now() });
+    // 自分が実際に編集したセクションとして記録（保存時にこのセクションだけ書き込むための目印）
+    _myTouchedSections.add(sectionId);
   });
 }
 
@@ -4602,11 +4663,28 @@ function _onMinutesViewOpen() {
 // ページ離脱時に全ロック解除
 window.addEventListener('beforeunload', _releaseAllMyLocks);
 
+// 議事録データをセクション単位でFirebaseに保存する。
+// 一度も自分が編集していない（ロックを取得していない）セクションや、
+// 現在他ユーザーがロック中のセクションは書き込み対象から除外し、
+// 他ユーザーの編集内容を上書き消去してしまうことを防ぐ。
+function _saveMinutesParts(keyPrefix, parts) {
+  const me = _getLockUserName();
+  MINUTES_PARTS.forEach(p => {
+    if (p !== 'header') {
+      if (!_myTouchedSections.has(p)) return; // 自分が触っていないセクションは書き込まない
+      const lock = _currentLocks[p];
+      if (lock && lock.userName !== me) return; // 他ユーザーが現在編集中なら書き込まない
+    }
+    S.set(`${keyPrefix}_${p}`, parts[p]);
+  });
+}
+
 function saveMinutes() {
   const data = collectMinutesData();
   const key = getMinutesKey(data.date || 'draft');
-  S.set(key, data);
-  if (data.date) S.set(getMinutesKey('draft'), data);
+  const parts = _splitMinutesData(data);
+  _saveMinutesParts(key, parts);
+  if (data.date) _saveMinutesParts(getMinutesKey('draft'), parts);
   // 保存後に自分のロックを全解除
   _releaseAllMyLocks();
   const label = document.getElementById('min-save-label');
