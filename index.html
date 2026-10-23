@@ -3220,6 +3220,17 @@ function buildFacilitySummaryHTML(f, color) {
   return basicSection + jinjiSection + ouenSection + snSection + sfSection + sonotaSection + qSection;
 }
 
+// 会議日の月から「直近で終了した四半期」のタブIDを返す（年度は4月始まり）
+// 4〜6月→4Q / 7〜9月→1Q / 10〜12月→2Q / 1〜3月→3Q。会議日未設定時は今日の日付で判定
+function getDefaultQuarterTab(dateStr) {
+  const d = dateStr ? new Date(dateStr + 'T00:00:00') : new Date();
+  const m = (isNaN(d.getTime()) ? new Date() : d).getMonth() + 1;
+  if (m >= 7 && m <= 9)   return '1Q';
+  if (m >= 10)            return '2Q';
+  if (m >= 1 && m <= 3)   return '3Q';
+  return '4Q';
+}
+
 // ===== 四半期カード生成（グラフページと同書式）=====
 function buildQuarterlyCards(f, color) {
   const tgt = getTgtData(f);
@@ -3275,12 +3286,15 @@ function buildQuarterlyCards(f, color) {
 
   // ===== 各ピリオドのカードHTMLを生成 =====
   const periods = [
-    { id:'1Q',  label:'1Q（4〜6月）',   cols:[0,1,2], active:true },
+    { id:'1Q',  label:'1Q（4〜6月）',   cols:[0,1,2] },
     { id:'2Q',  label:'2Q（7〜9月）',   cols:[3,4,5] },
     { id:'3Q',  label:'3Q（10〜12月）', cols:[6,7,8] },
     { id:'4Q',  label:'4Q（1〜3月）',   cols:[9,10,11] },
     { id:'cum', label:'累計',            cols:null },
   ];
+  // 会議日に合わせた四半期タブを初期表示にする
+  const defaultTab = getDefaultQuarterTab(getMeetingDate());
+  periods.forEach(p => { p.active = (p.id === defaultTab); });
 
   // 期間選択タブ（data属性でfacIdとperiodを渡す）
   const qTabsHtml = `
