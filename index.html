@@ -4000,7 +4000,9 @@ function proceedToNextMeeting() {
     `・人員数（全項目）：引き継がれます\n` +
     `・報告者名：クリア\n` +
     `・会議日：リセット\n` +
-    `・目標管理データ（全施設）：クリア\n\n` +
+    `・目標管理データ（全施設）：クリア\n` +
+    `・議事録の下書き：白紙に戻します（未保存の入力内容も失われます）\n` +
+    `　※保存済みの会議日別の議事録・アーカイブは残ります\n\n` +
     `この操作は元に戻せません。続けますか？`
   )) return;
 
@@ -4065,10 +4067,28 @@ function proceedToNextMeeting() {
     if (_dbRoot) _dbRoot.child(key).remove();
   });
 
+  // 議事録の下書きを白紙に戻す（会議日別に保存済みの議事録は消さない）
+  _resetMinutesDraft();
+
   buildNav();
   currentFacility = null;
   showView('summary');
   showToast('次回会議の準備が完了しました ✅', 'success');
+}
+
+// 議事録の下書き（minutes_draft系キー）を削除し、議事録ビューを次回開いたときに白紙で初期化させる
+function _resetMinutesDraft() {
+  _releaseAllMyLocks();
+  const draftKey = getMinutesKey('draft');
+  // v64以降の分割キー＋v63以前の単一ブロックキー
+  [draftKey, ...MINUTES_PARTS.map(p => `${draftKey}_${p}`)].forEach(key => {
+    delete _pendingWrites[key];
+    delete _cache[key];
+    try { localStorage.removeItem('hkk_' + key); } catch(e) {}
+    if (_dbRoot) _dbRoot.child(key).remove();
+  });
+  _myTouchedSections.clear();
+  _minutesInitialized = false;
 }
 
 
