@@ -2184,6 +2184,7 @@ tr.action-保留 td { background:#fff5f5 !important; }
       <div class="setting-tabs">
         <div class="setting-tab active" onclick="switchSettingTab('facilities',this)">施設管理</div>
         <div class="setting-tab" onclick="switchSettingTab('dropdowns',this)">プルダウン設定</div>
+        <div class="setting-tab" onclick="switchSettingTab('secretary',this)">📝 会議書記</div>
         <div class="setting-tab" onclick="switchSettingTab('mgmt',this)">📋 会議管理</div>
       </div>
 
@@ -2224,6 +2225,22 @@ tr.action-保留 td { background:#fff5f5 !important; }
           <div class="dropdown-panel">
             <div class="dropdown-panel-title">【装置故障】装置</div>
             <div id="opts-souchi-fail-type"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 会議書記タブ -->
+      <div id="stab-secretary" class="stab-content" style="display:none;">
+        <div class="setting-section">
+          <div class="setting-header">会議書記の順番</div>
+          <div class="setting-body">
+            <p style="font-size:14px;color:var(--text2);line-height:1.7;margin-bottom:10px;">
+              施設一覧の順に自動で並びます（施設を追加・削除すると自動で反映されます）。▲▼で順番を変更できます。<br>
+              議事録の「書記」に<strong>今回の書記</strong>、「次回会議情報」の書記担当に<strong>次の担当</strong>が自動入力されます（入力済みの欄は上書きしません）。<br>
+              「次回会議へ進む」を押すと、今回の書記が次の担当に進みます。
+            </p>
+            <div id="secretary-summary" style="margin-bottom:10px;font-size:15px;font-weight:600;"></div>
+            <div id="secretary-list-edit"></div>
           </div>
         </div>
       </div>
@@ -3455,6 +3472,7 @@ document.addEventListener('click', function(e) {
 function renderSettings() {
   renderFacilityList();
   renderDropdownSettings();
+  renderSecretarySettings();
   const md = getMeetingDate();
   document.getElementById('setting-meeting-date').value = md;
   updateMeetingBadge(md);
@@ -3470,6 +3488,82 @@ function switchSettingTab(id, el) {
   document.getElementById(`stab-${id}`).style.display = 'block';
   el.classList.add('active');
 }
+// --- 会議書記の順番（v67〜）---
+// 順番は施設一覧から自動生成し、保存済みの並びを重ねる。
+// 保存形式：secretary_order = [{facility}...]、secretary_current = 今回の書記の施設名
+function getSecretaryOrder() {
+  const facs = getFacilities();
+  const saved = S.get('secretary_order', []) || [];
+  const list = [];
+  saved.forEach(e => {
+    if (e && facs.includes(e.facility) && !list.some(x => x.facility === e.facility)) {
+      list.push({ facility: e.facility });
+    }
+  });
+  facs.forEach(f => { if (!list.some(x => x.facility === f)) list.push({ facility: f }); });
+  return list;
+}
+function getSecretaryCurrentIndex(list) {
+  const i = list.findIndex(e => e.facility === S.get('secretary_current', ''));
+  return i < 0 ? 0 : i;
+}
+// 議事録に入れる表記：施設名（担当者名は議事録側で直接入力する）
+function formatSecretary(e) {
+  return e ? e.facility : '';
+}
+function _saveSecretary(list, curName) {
+  S.set('secretary_order', list);
+  S.set('secretary_current', curName);
+  renderSecretarySettings();
+}
+function renderSecretarySettings() {
+  const el = document.getElementById('secretary-list-edit');
+  if (!el) return;
+  const list = getSecretaryOrder();
+  if (!list.length) { el.innerHTML = ''; return; }
+  const cur = getSecretaryCurrentIndex(list);
+  const nxt = (cur + 1) % list.length;
+  document.getElementById('secretary-summary').innerHTML =
+    `今回の書記：<span style="color:var(--accent);">${escapeHtml(formatSecretary(list[cur]))}</span>` +
+    `　／　次回の書記：<span style="color:var(--accent);">${escapeHtml(formatSecretary(list[nxt]))}</span>`;
+  el.innerHTML = `<table style="border-collapse:collapse;width:100%;max-width:640px;">
+    <thead><tr style="text-align:left;font-size:13px;color:var(--text3);">
+      <th style="width:40px;">順番</th><th>施設</th><th style="width:80px;">並べ替え</th><th style="width:80px;">今回</th>
+    </tr></thead><tbody>${list.map((e, i) => `
+    <tr style="border-top:1px solid var(--border);${i===cur?'background:var(--accent-light);':''}">
+      <td style="padding:6px 4px;">${i + 1}</td>
+      <td>${escapeHtml(e.facility)}</td>
+      <td><button class="btn btn-secondary btn-sm" onclick="moveSecretary(${i},-1)" ${i===0?'disabled':''}>▲</button>
+          <button class="btn btn-secondary btn-sm" onclick="moveSecretary(${i},1)" ${i===list.length-1?'disabled':''}>▼</button></td>
+      <td><label style="cursor:pointer;"><input type="radio" name="sec-cur" ${i===cur?'checked':''} onchange="setSecretaryCurrent(${i})"> 今回</label></td>
+    </tr>`).join('')}</tbody></table>`;
+}
+function moveSecretary(i, dir) {
+  const list = getSecretaryOrder();
+  const j = i + dir;
+  if (j < 0 || j >= list.length) return;
+  const curName = list[getSecretaryCurrentIndex(list)].facility;
+  [list[i], list[j]] = [list[j], list[i]];
+  _saveSecretary(list, curName);
+}
+function setSecretaryCurrent(i) {
+  const list = getSecretaryOrder();
+  _saveSecretary(list, list[i].facility);
+}
+// 議事録の書記欄が空欄のときだけ、順番表から自動入力する
+function applySecretaryDefaults() {
+  const list = getSecretaryOrder();
+  if (!list.length) return;
+  const i = getSecretaryCurrentIndex(list);
+  const s = document.getElementById('min-secretary');
+  if (s && !s.value.trim()) s.value = formatSecretary(list[i]);
+  const n = document.getElementById('min-next-secretary');
+  if (n && !n.value.trim()) {
+    n.value = formatSecretary(list[(i + 1) % list.length]);
+    _myTouchedSections.add('next'); // 自動入力した次回書記も保存対象にする
+  }
+}
+
 // --- 施設管理 ---
 function renderFacilityList() {
   const facs = getFacilities();
@@ -3495,6 +3589,7 @@ function addFacility() {
   getFacilityColor(name); // 色を自動割り当て
   inp.value = '';
   renderFacilityList();
+  renderSecretarySettings();
   buildNav();
   showToast(`「${name}」を追加しました`,'success');
 }
@@ -3512,6 +3607,7 @@ function removeFacility(idx) {
     if (_dbRoot) _dbRoot.child(key).remove();
   });
   renderFacilityList();
+  renderSecretarySettings();
   buildNav();
   if (currentFacility === name) showView('summary');
   showToast(`「${name}」を削除しました`,'success');
@@ -4002,6 +4098,7 @@ function proceedToNextMeeting() {
     `・会議日：リセット\n` +
     `・目標管理データ（全施設）：クリア\n` +
     `・議事録の下書き：白紙に戻します（未保存の入力内容も失われます）\n` +
+    `・会議書記：${_secretaryAdvanceLabel()}\n` +
     `　※保存済みの会議日別の議事録・アーカイブは残ります\n\n` +
     `この操作は元に戻せません。続けますか？`
   )) return;
@@ -4067,6 +4164,14 @@ function proceedToNextMeeting() {
     if (_dbRoot) _dbRoot.child(key).remove();
   });
 
+  // 会議書記を次の担当に進める
+  const secList = getSecretaryOrder();
+  if (secList.length) {
+    S.set('secretary_order', secList);
+    S.set('secretary_current', secList[(getSecretaryCurrentIndex(secList) + 1) % secList.length].facility);
+    renderSecretarySettings();
+  }
+
   // 議事録の下書きを白紙に戻す（会議日別に保存済みの議事録は消さない）
   _resetMinutesDraft();
 
@@ -4074,6 +4179,14 @@ function proceedToNextMeeting() {
   currentFacility = null;
   showView('summary');
   showToast('次回会議の準備が完了しました ✅', 'success');
+}
+
+// 確認ダイアログ用：「今回の書記 → 次の担当」の表記
+function _secretaryAdvanceLabel() {
+  const list = getSecretaryOrder();
+  if (!list.length) return '（順番未設定）';
+  const i = getSecretaryCurrentIndex(list);
+  return `${formatSecretary(list[i])} → ${formatSecretary(list[(i + 1) % list.length])} に進みます`;
 }
 
 // 議事録の下書き（minutes_draft系キー）を削除し、議事録ビューを次回開いたときに白紙で初期化させる
@@ -4168,6 +4281,7 @@ function renderMinutesView() {
   if (_minutesInitialized) {
     // 再表示時は出席者の報告者名だけ最新データで同期する
     _syncAttendeeReporters();
+    applySecretaryDefaults();
     return;
   }
   _minutesInitialized = true;
@@ -4178,6 +4292,7 @@ function renderMinutesView() {
   } else {
     initMinutesBlank();
   }
+  applySecretaryDefaults();
 }
 
 // 出席者テーブルの施設行の氏名を報告者名で同期する
