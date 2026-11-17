@@ -1054,6 +1054,9 @@ select {
   vertical-align: middle;
 }
 .sum-table tr:nth-child(even) td { background: var(--surface2); }
+/* 列幅を内容に合わせて自動調整（最後の列＝備考が残りの幅を使う）v68〜 */
+.sum-table.sum-fit td:not(:last-child) { white-space: nowrap; }
+.sum-table.sum-fit th:last-child { width: 100%; }
 .sum-none {
   padding: 16px;
   font-size: 14px;
@@ -3146,8 +3149,8 @@ function buildFacilitySummaryHTML(f, color) {
   let ouenBody = '';
   if (ouenRows.length) {
     ouenBody = `<div style="overflow-x:auto;padding:0 14px 12px;">
-      <table class="sum-table">
-        <thead><tr><th style="width:110px;">From</th><th style="width:30px;text-align:center"></th><th style="width:110px;">To</th><th style="width:80px;">分類</th><th style="width:105px;">開始日</th><th style="width:105px;">終了日</th><th style="width:110px;">派遣者・研修者</th><th>備考</th></tr></thead>
+      <table class="sum-table sum-fit">
+        <thead><tr><th>From</th><th style="text-align:center"></th><th>To</th><th>分類</th><th>開始日</th><th>終了日</th><th>派遣者・研修者</th><th>備考</th></tr></thead>
         <tbody>${ouenRows.map(r=>`<tr>
           <td>${esc(r.from)}</td><td style="text-align:center;color:var(--text3)">→</td><td>${esc(r.to)}</td>
           <td><strong>${esc(r.type)}</strong></td>
