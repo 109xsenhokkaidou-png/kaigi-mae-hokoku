@@ -2369,6 +2369,18 @@ const _cache = {};
 let _dbRoot = null;
 let _fbListener = null;
 let _appInitialized = false;
+// v69：通信が切れた・戻ったことを知らせる（オフライン中は送信が保留されるだけでエラーにならないため）
+let _wasOffline = false;
+db.ref('.info/connected').on('value', snap => {
+  if (!_appInitialized) return;
+  if (snap.val() === false) {
+    _wasOffline = true;
+    showToast('通信が切れています。つながるまで画面を閉じないでください。', 'error');
+  } else if (_wasOffline) {
+    _wasOffline = false;
+    showToast('通信が回復しました', 'success');
+  }
+});
 let _syncTimer = null;
 const _pendingWrites = {};
 let _fbReady = false;  // Firebaseから初回データ受信完了フラグ
@@ -2387,7 +2399,10 @@ function _flushToFirebase() {
     delete _pendingWrites[k];
   }
   _dbRoot.update(updates)
-    .catch(e => console.error('Firebase書き込みエラー:', e))
+    .catch(e => {
+      console.error('Firebase書き込みエラー:', e);
+      showToast('保存できませんでした。通信を確認して、もう一度保存してください。', 'error');
+    })
     .finally(() => _showSync(false));
 }
 
@@ -2509,7 +2524,8 @@ function _onRemoteUpdate() {
       const focused = document.activeElement;
       const isInputting = focused && facilityView.contains(focused) &&
         (focused.tagName === 'INPUT' || focused.tagName === 'TEXTAREA' || focused.tagName === 'SELECT');
-      if (!isInputting) loadFacilityData(currentFacility);
+      // v69：開いている施設のデータが変わったときだけ描き直す（他施設の保存で未保存の入力が消えないように）
+      if (!isInputting && _facSnapshot(currentFacility) !== _loadedFacSnapshot) loadFacilityData(currentFacility);
     }
   }
   // 全施設一覧・施設発表用も再描画（表示中のビューのみ）
@@ -2652,7 +2668,7 @@ function renderOverview() {
     parts.push(`定員 ${fmtNum(te)}`);
     jinzaiHtml += `<tr style="border-bottom:1px solid var(--border);">
       <td style="padding:8px 8px 8px 16px;white-space:nowrap;"><span class="facility-tag" style="background:${color};">${f}</span></td>
-      <td style="padding:8px;white-space:nowrap;font-size:13px;color:var(--text3);">${b.reporter||''}</td>
+      <td style="padding:8px;white-space:nowrap;font-size:13px;color:var(--text3);">${escapeHtml(b.reporter)||''}</td>
       <td style="padding:8px;white-space:nowrap;font-size:15px;font-weight:700;color:var(--accent);">総合計 ${fmtNum(tot)}</td>
       <td style="padding:8px 16px 8px 8px;font-size:14px;color:var(--text2);">${parts.map(p=>`<span style="white-space:nowrap;margin-right:10px;">${p}</span>`).join('')}</td>
     </tr>`;
@@ -2702,10 +2718,10 @@ function renderOverview() {
       jinjiCount++;
       jinjiRows += `<tr>
         ${i===0 ? `<td rowspan="${rows.length}" style="vertical-align:top;padding-top:7px;">${facTag(f)}</td>` : ''}
-        <td><strong>${r.type}</strong></td>
+        <td><strong>${escapeHtml(r.type)}</strong></td>
         <td>${r.date||'—'}</td>
-        <td>${r.name}</td>
-        <td style="color:var(--text3)">${r.note||''}</td>
+        <td>${escapeHtml(r.name)}</td>
+        <td style="color:var(--text3)">${escapeHtml(r.note)||''}</td>
       </tr>`;
     });
   });
@@ -2728,11 +2744,11 @@ function renderOverview() {
       ouenCount++;
       ouenRows += `<tr>
         ${i===0 ? `<td rowspan="${rows.length}" style="vertical-align:top;padding-top:7px;">${facTag(f)}</td>` : ''}
-        <td><strong>${r.type}</strong></td>
-        <td>${r.from||'—'} → ${r.to||'—'}</td>
+        <td><strong>${escapeHtml(r.type)}</strong></td>
+        <td>${escapeHtml(r.from)||'—'} → ${escapeHtml(r.to)||'—'}</td>
         <td style="white-space:nowrap;">${r.date_from||''}${r.date_to?'～'+r.date_to:''}</td>
-        <td>${r.person||''}</td>
-        <td style="color:var(--text3)">${r.note||''}</td>
+        <td>${escapeHtml(r.person)||''}</td>
+        <td style="color:var(--text3)">${escapeHtml(r.note)||''}</td>
       </tr>`;
     });
   });
@@ -2755,10 +2771,10 @@ function renderOverview() {
       snCount++;
       snRows += `<tr>
         ${i===0 ? `<td rowspan="${rows.length}" style="vertical-align:top;padding-top:7px;">${facTag(f)}</td>` : ''}
-        <td><strong>${r.souchi||'—'}</strong></td>
-        <td>${r.maker||''}</td>
-        <td>${r.name||''}</td>
-        <td style="color:var(--text3)">${r.detail||''}</td>
+        <td><strong>${escapeHtml(r.souchi)||'—'}</strong></td>
+        <td>${escapeHtml(r.maker)||''}</td>
+        <td>${escapeHtml(r.name)||''}</td>
+        <td style="color:var(--text3)">${escapeHtml(r.detail)||''}</td>
       </tr>`;
     });
   });
@@ -2783,12 +2799,12 @@ function renderOverview() {
       sfRows += `<tr>
         ${i===0 ? `<td rowspan="${rows.length}" style="vertical-align:top;padding-top:7px;">${facTag(f)}</td>` : ''}
         <td style="white-space:nowrap;">${r.date||'—'}</td>
-        <td><strong>${r.device||'—'}</strong></td>
-        <td>${r.maker||''}</td>
-        <td>${r.name||''}</td>
-        <td style="text-align:center">${r.hoshu||''}</td>
+        <td><strong>${escapeHtml(r.device)||'—'}</strong></td>
+        <td>${escapeHtml(r.maker)||''}</td>
+        <td>${escapeHtml(r.name)||''}</td>
+        <td style="text-align:center">${escapeHtml(r.hoshu)||''}</td>
         <td class="num">${amt}</td>
-        <td style="color:var(--text3)">${r.detail||''}</td>
+        <td style="color:var(--text3)">${escapeHtml(r.detail)||''}</td>
       </tr>`;
     });
   });
@@ -2819,7 +2835,14 @@ function openFacility(f) {
 }
 
 // ===== 施設データをフォームへ =====
+// v69：施設データを読み込んだ（保存した）時点の中身。変化の判定に使う
+let _loadedFacSnapshot = '';
+function _facSnapshot(f) {
+  return JSON.stringify(['basic','jinji','ouen','souchi-new','souchi-fail','sonota']
+    .map(sec => getFacilityData(f, sec, null)));
+}
 function loadFacilityData(f) {
+  _loadedFacSnapshot = _facSnapshot(f);
   const b = getFacilityData(f, 'basic', {});
   document.getElementById('f-reporter').value = b.reporter || '';
   document.getElementById('f-jokin-m').value  = b.jokin_m  || 0;
@@ -2885,9 +2908,9 @@ function addRow(tableId, data={}) {
   if (tableId === 'jinji-table') {
     const opts = getOpts('jinji-type');
     const ctrl = opts.free
-      ? `<input type="text" value="${data.type||''}" placeholder="分類">`
+      ? `<input type="text" value="${escapeHtml(data.type)||''}" placeholder="分類">`
       : `<select>${opts.items.map(t=>`<option${data.type===t?' selected':''}>${t}</option>`).join('')}</select>`;
-    tr.innerHTML = `<td>${ctrl}</td><td><input type="date" value="${data.date||''}"></td><td><input type="text" value="${data.name||''}" placeholder="氏名"></td><td><input type="text" value="${data.note||''}" placeholder="備考"></td>${moveBtns}${carryChk(carryOn)}<td>${del}</td>`;
+    tr.innerHTML = `<td>${ctrl}</td><td><input type="date" value="${data.date||''}"></td><td><input type="text" value="${escapeHtml(data.name)||''}" placeholder="氏名"></td><td><input type="text" value="${escapeHtml(data.note)||''}" placeholder="備考"></td>${moveBtns}${carryChk(carryOn)}<td>${del}</td>`;
 
   } else if (tableId === 'ouen-table') {
     const ouenFacs = getOpts('ouen-from').items;
@@ -2895,24 +2918,24 @@ function addRow(tableId, data={}) {
     const facOpts2 = ouenFacs.map(f=>`<option${data.to===f?' selected':''}>${f}</option>`).join('');
     const ouenOpts = getOpts('ouen-type');
     const typeCtrl = ouenOpts.free
-      ? `<input type="text" value="${data.type||''}" placeholder="分類">`
+      ? `<input type="text" value="${escapeHtml(data.type)||''}" placeholder="分類">`
       : `<select>${ouenOpts.items.map(t=>`<option${data.type===t?' selected':''}>${t}</option>`).join('')}</select>`;
-    tr.innerHTML = `<td><select>${facOpts}</select></td><td class="center">→</td><td><select>${facOpts2}</select></td><td>${typeCtrl}</td><td><input type="date" value="${data.date_from||''}"></td><td><input type="date" value="${data.date_to||''}"></td><td><input type="text" value="${data.person||''}" placeholder="氏名"></td><td><input type="text" value="${data.note||''}" placeholder="備考"></td>${moveBtns}${carryChk(carryOn)}<td>${del}</td>`;
+    tr.innerHTML = `<td><select>${facOpts}</select></td><td class="center">→</td><td><select>${facOpts2}</select></td><td>${typeCtrl}</td><td><input type="date" value="${data.date_from||''}"></td><td><input type="date" value="${data.date_to||''}"></td><td><input type="text" value="${escapeHtml(data.person)||''}" placeholder="氏名"></td><td><input type="text" value="${escapeHtml(data.note)||''}" placeholder="備考"></td>${moveBtns}${carryChk(carryOn)}<td>${del}</td>`;
 
   } else if (tableId === 'souchi-new-table') {
     const souchiOpts = getOpts('souchi-type');
     const souchiCtrl = souchiOpts.free
-      ? `<input type="text" value="${data.souchi||''}" placeholder="装置">`
+      ? `<input type="text" value="${escapeHtml(data.souchi)||''}" placeholder="装置">`
       : `<select>${souchiOpts.items.map(t=>`<option${data.souchi===t?' selected':''}>${t}</option>`).join('')}</select>`;
-    tr.innerHTML = `<td>${souchiCtrl}</td><td><input type="text" value="${data.maker||''}" placeholder="メーカー名"></td><td><input type="text" value="${data.name||''}" placeholder="装置名"></td><td><textarea rows="2" placeholder="詳細・導入予定時期など">${data.detail||''}</textarea></td>${moveBtns}${carryChk(carryOn)}<td>${del}</td>`;
+    tr.innerHTML = `<td>${souchiCtrl}</td><td><input type="text" value="${escapeHtml(data.maker)||''}" placeholder="メーカー名"></td><td><input type="text" value="${escapeHtml(data.name)||''}" placeholder="装置名"></td><td><textarea rows="2" placeholder="詳細・導入予定時期など">${escapeHtml(data.detail)||''}</textarea></td>${moveBtns}${carryChk(carryOn)}<td>${del}</td>`;
 
   } else if (tableId === 'souchi-fail-table') {
     const sfOpts = getOpts('souchi-fail-type');
     const deviceCtrl = sfOpts.free
-      ? `<input type="text" value="${data.device||''}" placeholder="CT・MRI等">`
+      ? `<input type="text" value="${escapeHtml(data.device)||''}" placeholder="CT・MRI等">`
       : `<select>${sfOpts.items.map(t=>`<option${data.device===t?' selected':''}>${t}</option>`).join('')}</select>`;
     const hoshuSel = `<select><option${data.hoshu==='有'?' selected':''}>有</option><option${data.hoshu==='無'?' selected':''}>無</option></select>`;
-    tr.innerHTML = `<td><input type="date" value="${data.date||''}"></td><td>${deviceCtrl}</td><td><input type="text" value="${data.maker||''}" placeholder="メーカー名"></td><td><input type="text" value="${data.name||''}" placeholder="装置名・型番"></td><td>${hoshuSel}</td><td><div class="amount-wrap"><input type="number" value="${data.amount||''}" placeholder="0" min="0" max="99999999999" step="1" style="text-align:right;width:100%;"><span class="yen">円</span></div></td><td><textarea rows="2" placeholder="故障内容・対応状況など">${data.detail||''}</textarea></td>${moveBtns}${carryChk(carryOn)}<td>${del}</td>`;
+    tr.innerHTML = `<td><input type="date" value="${data.date||''}"></td><td>${deviceCtrl}</td><td><input type="text" value="${escapeHtml(data.maker)||''}" placeholder="メーカー名"></td><td><input type="text" value="${escapeHtml(data.name)||''}" placeholder="装置名・型番"></td><td>${hoshuSel}</td><td><div class="amount-wrap"><input type="number" value="${data.amount||''}" placeholder="0" min="0" max="99999999999" step="1" style="text-align:right;width:100%;"><span class="yen">円</span></div></td><td><textarea rows="2" placeholder="故障内容・対応状況など">${escapeHtml(data.detail)||''}</textarea></td>${moveBtns}${carryChk(carryOn)}<td>${del}</td>`;
   }
 
   // 引き継ぎチェックで行色変更
@@ -2999,6 +3022,7 @@ function saveAll() {
     minutes: document.getElementById('f-sonota-minutes').checked,
   });
 
+  _loadedFacSnapshot = _facSnapshot(currentFacility);  // v69：保存後に続けて入力した分を守る
   buildNav();
   const label = document.getElementById('save-bar-label');
   label.textContent = `保存済み（${new Date().toLocaleTimeString('ja-JP')}）`;
@@ -3802,7 +3826,7 @@ async function exportOverviewPDF() {
       ].filter(Boolean).join('');
       jinzaiRows += `<tr>
         <td style="${S.td}">${tag(f)}</td>
-        <td style="${S.td}">${b.reporter||''}</td>
+        <td style="${S.td}">${escapeHtml(b.reporter)||''}</td>
         <td style="${S.td}font-weight:700;color:#1a4f72;">総合計 ${_fmt(tot)}</td>
         <td style="${S.tdW}">${parts}</td>
       </tr>`;
@@ -3842,10 +3866,10 @@ async function exportOverviewPDF() {
         jinjiCnt++;
         jinjiRows2 += `<tr>
           ${i===0?`<td style="${S.td}" rowspan="${rows.length}">${tag(f)}</td>`:''}
-          <td style="${S.td}font-weight:700;">${r.type||''}</td>
+          <td style="${S.td}font-weight:700;">${escapeHtml(r.type)||''}</td>
           <td style="${S.td}">${r.date||'—'}</td>
-          <td style="${S.td}">${r.name||''}</td>
-          <td style="${S.tdW}color:#888;">${r.note||''}</td>
+          <td style="${S.td}">${escapeHtml(r.name)||''}</td>
+          <td style="${S.tdW}color:#888;">${escapeHtml(r.note)||''}</td>
         </tr>`;
       });
     });
@@ -3869,11 +3893,11 @@ async function exportOverviewPDF() {
         const period = [r.date_from||'', r.date_to?'～'+r.date_to:''].filter(Boolean).join('');
         ouenRows2 += `<tr>
           ${i===0?`<td style="${S.td}" rowspan="${rows.length}">${tag(f)}</td>`:''}
-          <td style="${S.td}font-weight:700;">${r.type||''}</td>
-          <td style="${S.td}">${r.from||''}→${r.to||''}</td>
+          <td style="${S.td}font-weight:700;">${escapeHtml(r.type)||''}</td>
+          <td style="${S.td}">${escapeHtml(r.from)||''}→${escapeHtml(r.to)||''}</td>
           <td style="${S.td}white-space:nowrap;">${period}</td>
-          <td style="${S.td}">${r.person||''}</td>
-          <td style="${S.tdW}color:#888;">${r.note||''}</td>
+          <td style="${S.td}">${escapeHtml(r.person)||''}</td>
+          <td style="${S.tdW}color:#888;">${escapeHtml(r.note)||''}</td>
         </tr>`;
       });
     });
@@ -3896,10 +3920,10 @@ async function exportOverviewPDF() {
         snCnt++;
         snRows2 += `<tr>
           ${i===0?`<td style="${S.td}" rowspan="${rows.length}">${tag(f)}</td>`:''}
-          <td style="${S.td}font-weight:700;">${r.souchi||'—'}</td>
-          <td style="${S.td}">${r.maker||''}</td>
-          <td style="${S.td}">${r.name||''}</td>
-          <td style="${S.tdW}color:#888;">${r.detail||''}</td>
+          <td style="${S.td}font-weight:700;">${escapeHtml(r.souchi)||'—'}</td>
+          <td style="${S.td}">${escapeHtml(r.maker)||''}</td>
+          <td style="${S.td}">${escapeHtml(r.name)||''}</td>
+          <td style="${S.tdW}color:#888;">${escapeHtml(r.detail)||''}</td>
         </tr>`;
       });
     });
@@ -3924,12 +3948,12 @@ async function exportOverviewPDF() {
         sfRows2 += `<tr>
           ${i===0?`<td style="${S.td}" rowspan="${rows.length}">${tag(f)}</td>`:''}
           <td style="${S.td}white-space:nowrap;">${r.date||'—'}</td>
-          <td style="${S.td}font-weight:700;">${r.device||'—'}</td>
-          <td style="${S.td}">${r.maker||''}</td>
-          <td style="${S.td}">${r.name||''}</td>
-          <td style="${S.td}text-align:center;">${r.hoshu||''}</td>
+          <td style="${S.td}font-weight:700;">${escapeHtml(r.device)||'—'}</td>
+          <td style="${S.td}">${escapeHtml(r.maker)||''}</td>
+          <td style="${S.td}">${escapeHtml(r.name)||''}</td>
+          <td style="${S.td}text-align:center;">${escapeHtml(r.hoshu)||''}</td>
           <td style="${S.tdR}">${amt}</td>
-          <td style="${S.tdW}color:#888;">${r.detail||''}</td>
+          <td style="${S.tdW}color:#888;">${escapeHtml(r.detail)||''}</td>
         </tr>`;
       });
     });
@@ -4383,11 +4407,11 @@ function addAttendeeRow(facName, names, free) {
     // 施設名・氏名ともにフリー入力
     tr.innerHTML = `
       <td style="border:1px solid var(--border);padding:2px 4px;">
-        <input type="text" value="${facName}" placeholder="施設名・役職"
+        <input type="text" value="${escapeHtml(facName)}" placeholder="施設名・役職"
           style="width:100%;border:none;background:transparent;padding:4px 6px;font-size:14px;font-family:inherit;color:var(--text);">
       </td>
       <td style="border:1px solid var(--border);padding:2px 4px;">
-        <input type="text" value="${names}" placeholder="氏名"
+        <input type="text" value="${escapeHtml(names)}" placeholder="氏名"
           style="width:100%;border:none;background:transparent;padding:4px 6px;font-size:14px;font-family:inherit;color:var(--text);">
       </td>
       <td style="border:1px solid var(--border);padding:2px 4px;text-align:center;">${del}</td>`;
@@ -4401,7 +4425,7 @@ function addAttendeeRow(facName, names, free) {
           padding:1px 7px;font-size:13px;font-weight:600;">${facName}</span>
       </td>
       <td style="border:1px solid var(--border);padding:2px 4px;">
-        <input type="text" value="${names}" placeholder="氏名・役職"
+        <input type="text" value="${escapeHtml(names)}" placeholder="氏名・役職"
           style="width:100%;border:none;background:transparent;padding:4px 6px;font-size:14px;font-family:inherit;color:var(--text);">
       </td>
       <td style="border:1px solid var(--border);padding:2px 4px;text-align:center;">${del}</td>`;
@@ -4426,7 +4450,7 @@ function addMinBlock(listId, defaultTitle) {
   div.innerHTML = `
     <div class="min-block-header">
       <span class="min-block-num">${idx}</span>
-      <input type="text" class="min-block-title-input" placeholder="タイトルを入力" value="${defaultTitle}">
+      <input type="text" class="min-block-title-input" placeholder="タイトルを入力" value="${escapeHtml(defaultTitle)}">
       <button class="min-del-btn" onclick="this.closest('.min-block').remove();renumberBlocks('${listId}')">✕ 削除</button>
     </div>
     <div class="min-block-body">
@@ -4462,16 +4486,16 @@ function addActionRow(data = {}) {
   tr.className = data.status ? `action-${data.status}` : '';
   tr.innerHTML = `
     <td style="text-align:center;font-size:13px;color:var(--text3);padding:4px;">${rowNo}</td>
-    <td><input type="text" value="${data.content||''}" placeholder="決定事項・対応内容"></td>
+    <td><input type="text" value="${escapeHtml(data.content)||''}" placeholder="決定事項・対応内容"></td>
     <td><select>${facOpts}</select></td>
-    <td><input type="text" value="${data.person||''}" placeholder="担当者名"></td>
+    <td><input type="text" value="${escapeHtml(data.person)||''}" placeholder="担当者名"></td>
     <td><input type="date" value="${data.deadline||''}"></td>
     <td>
       <select class="status-sel" onchange="updateActionRowStyle(this)">
         ${statOpts}
       </select>
     </td>
-    <td><input type="text" value="${data.note||''}" placeholder="備考"></td>
+    <td><input type="text" value="${escapeHtml(data.note)||''}" placeholder="備考"></td>
     <td><button class="min-del-btn" onclick="this.closest('tr').remove();renumberActionRows()">✕</button></td>`;
   // 状況セレクトに色クラス
   const sel = tr.querySelector('.status-sel');
@@ -4564,7 +4588,7 @@ function collectFacReports() {
 
 // HTML特殊文字エスケープ
 function escapeHtml(s) {
-  return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
 // ===== 議事録保存 =====
@@ -5493,27 +5517,27 @@ function facTag(f, color) {
 function renderArcJinjiRows(r, f, color) {
   return `<tr>
     ${f !== null ? `<td>${facTag(f, color)}</td>` : '<td></td>'}
-    <td><strong>${r.type||''}</strong></td><td>${r.date||'—'}</td>
-    <td>${r.name||''}</td><td style="color:var(--text3)">${r.note||''}</td>
+    <td><strong>${escapeHtml(r.type)||''}</strong></td><td>${r.date||'—'}</td>
+    <td>${escapeHtml(r.name)||''}</td><td style="color:var(--text3)">${escapeHtml(r.note)||''}</td>
   </tr>`;
 }
 
 function renderArcOuenRows(r, f, color) {
   return `<tr>
     ${f !== null ? `<td>${facTag(f, color)}</td>` : '<td></td>'}
-    <td><strong>${r.type||''}</strong></td>
-    <td>${r.from||'—'} → ${r.to||'—'}</td>
+    <td><strong>${escapeHtml(r.type)||''}</strong></td>
+    <td>${escapeHtml(r.from)||'—'} → ${escapeHtml(r.to)||'—'}</td>
     <td style="white-space:nowrap;">${r.date_from||''}${r.date_to ? '～'+r.date_to : ''}</td>
-    <td>${r.person||''}</td><td style="color:var(--text3)">${r.note||''}</td>
+    <td>${escapeHtml(r.person)||''}</td><td style="color:var(--text3)">${escapeHtml(r.note)||''}</td>
   </tr>`;
 }
 
 function renderArcSouchiNewRows(r, f, color) {
   return `<tr>
     ${f !== null ? `<td>${facTag(f, color)}</td>` : '<td></td>'}
-    <td><strong>${r.souchi||'—'}</strong></td>
-    <td>${r.maker||''}</td><td>${r.name||''}</td>
-    <td style="color:var(--text3)">${r.detail||''}</td>
+    <td><strong>${escapeHtml(r.souchi)||'—'}</strong></td>
+    <td>${escapeHtml(r.maker)||''}</td><td>${escapeHtml(r.name)||''}</td>
+    <td style="color:var(--text3)">${escapeHtml(r.detail)||''}</td>
   </tr>`;
 }
 
@@ -5522,11 +5546,11 @@ function renderArcSouchiFailRows(r, f, color) {
   return `<tr>
     ${f !== null ? `<td>${facTag(f, color)}</td>` : '<td></td>'}
     <td style="white-space:nowrap;">${r.date||'—'}</td>
-    <td><strong>${r.device||'—'}</strong></td>
-    <td>${r.maker||''}</td><td>${r.name||''}</td>
-    <td style="text-align:center">${r.hoshu||''}</td>
+    <td><strong>${escapeHtml(r.device)||'—'}</strong></td>
+    <td>${escapeHtml(r.maker)||''}</td><td>${escapeHtml(r.name)||''}</td>
+    <td style="text-align:center">${escapeHtml(r.hoshu)||''}</td>
     <td style="text-align:right">${amt}</td>
-    <td style="color:var(--text3)">${r.detail||''}</td>
+    <td style="color:var(--text3)">${escapeHtml(r.detail)||''}</td>
   </tr>`;
 }
 
@@ -5540,7 +5564,7 @@ function renderArcSonota(data) {
     const color = getFacilityColor(f);
     html += `<div style="padding:12px 16px;border-bottom:1px solid var(--border);">
       <div style="margin-bottom:6px;">${facTag(f, color)}</div>
-      <div style="font-size:14px;color:var(--text2);white-space:pre-wrap;line-height:1.7;">${text}</div>
+      <div style="font-size:14px;color:var(--text2);white-space:pre-wrap;line-height:1.7;">${escapeHtml(text)}</div>
     </div>`;
   });
   document.getElementById('arc-sonota-content').innerHTML = html || `<div class="arc-none">入力なし</div>`;
